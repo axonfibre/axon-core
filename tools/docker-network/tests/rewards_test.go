@@ -23,7 +23,12 @@ import (
 // 4. Claim rewards and check if the mana increased as expected, the account that issued less validation blocks should have less mana.
 func Test_ValidatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithStakingOptions(2, 10, 10),
+			)...,
+		),
 	)
 	defer d.Stop()
 
@@ -135,7 +140,12 @@ func Test_ValidatorRewards(t *testing.T) {
 // 3. Claim rewards and check if the mana increased as expected.
 func Test_DelegatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithStakingOptions(3, 10, 10),
+			)...,
+		),
 	)
 	defer d.Stop()
 
@@ -190,7 +200,12 @@ func Test_DelegatorRewards(t *testing.T) {
 // 3. Claim rewards and check to destroy the delegation output.
 func Test_DelayedClaimingRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithStakingOptions(3, 10, 10),
+			)...,
+		),
 	)
 	defer d.Stop()
 

@@ -193,7 +193,12 @@ func Test_NoCandidacyPayload(t *testing.T) {
 // 3. Check if the account became a staker.
 func Test_Staking(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithTargetCommitteeSize(3),
+			)...,
+		),
 	)
 	defer d.Stop()
 
@@ -237,7 +242,12 @@ func Test_Staking(t *testing.T) {
 // 4. Delegate requested faucet funds to V3, V3 should replace V1 as a committee member. (V3 > V2 > V4 > V1)
 func Test_Delegation(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithTargetCommitteeSize(3),
+			)...,
+		),
 	)
 	defer d.Stop()
 

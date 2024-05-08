@@ -23,7 +23,6 @@ var ShortSlotsAndEpochsProtocolParametersOptions = []options.Option[iotago.V3Pro
 	iotago.WithLivenessOptions(5, 5, 2, 4, 5),
 	iotago.WithCongestionControlOptions(1, 1, 1, 200_000_000, 125_000_000, 50_000_000, 1000, 100),
 	iotago.WithRewardsOptions(8, 10, 2, 384),
-	iotago.WithStakingOptions(2, 5, 5),
 	iotago.WithTargetCommitteeSize(4),
 }
 
