@@ -5,12 +5,10 @@ package tests
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
-	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // Test_AccountTransitions follows the account state transition flow described in:
@@ -20,12 +18,8 @@ import (
 // 4. account2 requests faucet funds then creates native tokens.
 func Test_AccountTransitions(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")

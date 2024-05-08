@@ -24,12 +24,8 @@ import (
 // 5. Check that committee of size 4 is selected in next epoch.
 func Test_SmallerCommittee(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -69,12 +65,8 @@ func Test_SmallerCommittee(t *testing.T) {
 // 5. Check that committee of size 3 (V1, V2, V4) is selected in next epoch and finalization occurs again from that epoch.
 func Test_ReuseDueToNoFinalization(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -138,12 +130,8 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 // 5. Check finalization advances and the committee is changed to 3 committee members.
 func Test_NoCandidacyPayload(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6", false)
@@ -188,12 +176,8 @@ func Test_NoCandidacyPayload(t *testing.T) {
 // 3. Check if the account became a staker.
 func Test_Staking(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(3),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -231,12 +215,8 @@ func Test_Staking(t *testing.T) {
 // 4. Delegate requested faucet funds to V3, V3 should replace V1 as a committee member. (V3 > V2 > V4 > V1)
 func Test_Delegation(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(3),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	// V1 pubKey in hex: 0x293dc170d9a59474e6d81cfba7f7d924c09b25d7166bcfba606e53114d0a758b

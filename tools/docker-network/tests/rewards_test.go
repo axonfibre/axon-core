@@ -23,11 +23,8 @@ import (
 // 4. Claim rewards and check if the mana increased as expected, the account that issued less validation blocks should have less mana.
 func Test_ValidatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithStakingOptions(2, 10, 10),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -138,11 +135,8 @@ func Test_ValidatorRewards(t *testing.T) {
 // 3. Claim rewards and check if the mana increased as expected.
 func Test_DelegatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 3),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 5),
-			iotago.WithStakingOptions(3, 10, 10),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -196,11 +190,8 @@ func Test_DelegatorRewards(t *testing.T) {
 // 3. Claim rewards and check to destroy the delegation output.
 func Test_DelayedClaimingRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithStakingOptions(3, 10, 10),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -274,7 +265,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 func issueCandidacyPayloadInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wallet *mock.Wallet, startSlot, endSlot iotago.SlotIndex) {
 	go func() {
 		fmt.Println("Issuing candidacy payloads for account", wallet.BlockIssuer.AccountData.ID, "in the background...")
-		defer fmt.Println("Issuing candidacy payloads for account", wallet.BlockIssuer.AccountData.ID, "in the background......done")
+		defer fmt.Println("Issuing candidacy payloads for account", wallet.BlockIssuer.AccountData.ID, "in the background... done!")
 
 		for i := startSlot; i < endSlot; i++ {
 			// wait until the slot is reached
@@ -301,7 +292,7 @@ func issueValidationBlockInBackground(ctx context.Context, wg *sync.WaitGroup, w
 	go func() {
 		defer wg.Done()
 		fmt.Println("Issuing validation block for wallet", wallet.Name, "in the background...")
-		defer fmt.Println("Issuing validation block for wallet", wallet.Name, "in the background......done")
+		defer fmt.Println("Issuing validation block for wallet", wallet.Name, "in the background... done!")
 
 		for i := startSlot; i < endSlot; i++ {
 			// wait until the slot is reached

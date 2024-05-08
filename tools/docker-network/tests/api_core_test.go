@@ -260,12 +260,8 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 // 5. Wait until next epoch then check again if the results remain.
 func Test_ValidatorsAPI(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -274,10 +270,11 @@ func Test_ValidatorsAPI(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
+
 	hrp := d.DefaultWallet().Client.CommittedAPI().ProtocolParameters().Bech32HRP()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -329,14 +326,10 @@ func Test_ValidatorsAPI(t *testing.T) {
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 }
 
-func Test_CoreAPI(t *testing.T) {
+func Test_CoreAPI_ValidRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -345,8 +338,8 @@ func Test_CoreAPI(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
@@ -676,12 +669,8 @@ func Test_CoreAPI(t *testing.T) {
 
 func Test_CoreAPI_BadRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -690,8 +679,8 @@ func Test_CoreAPI_BadRequests(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
@@ -872,7 +861,7 @@ func Test_CoreAPI_BadRequests(t *testing.T) {
 		{
 			name: "Test_Committee_Failure",
 			testFunc: func(t *testing.T, node *dockertestframework.Node, client mock.Client) {
-				resp, err := client.Committee(context.Background(), 4)
+				resp, err := client.Committee(context.Background(), 4000)
 				require.Error(t, err)
 				require.True(t, dockertestframework.IsStatusCode(err, http.StatusBadRequest))
 				require.Nil(t, resp)

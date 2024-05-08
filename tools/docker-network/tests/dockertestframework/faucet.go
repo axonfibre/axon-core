@@ -20,7 +20,7 @@ import (
 
 func (d *DockerTestFramework) WaitUntilFaucetHealthy() {
 	fmt.Println("Wait until the faucet is healthy...")
-	defer fmt.Println("Wait until the faucet is healthy......done")
+	defer fmt.Println("Wait until the faucet is healthy... done!")
 
 	d.Eventually(func() error {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, d.optsFaucetURL+"/health", nil)

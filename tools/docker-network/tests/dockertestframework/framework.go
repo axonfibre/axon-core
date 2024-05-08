@@ -193,7 +193,7 @@ func (d *DockerTestFramework) Stop() {
 }
 
 func (d *DockerTestFramework) StopContainer(containerName ...string) error {
-	fmt.Println("Stop validator", containerName, "......")
+	fmt.Println("Stopping container", containerName, "......")
 
 	args := append([]string{"stop"}, containerName...)
 
@@ -201,7 +201,7 @@ func (d *DockerTestFramework) StopContainer(containerName ...string) error {
 }
 
 func (d *DockerTestFramework) RestartContainer(containerName ...string) error {
-	fmt.Println("Restart validator", containerName, "......")
+	fmt.Println("Restarting container", containerName, "......")
 
 	args := append([]string{"restart"}, containerName...)
 

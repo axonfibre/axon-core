@@ -12,7 +12,6 @@ import (
 
 	"github.com/iotaledger/iota-core/pkg/storage/database"
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
-	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/api"
 )
 
@@ -22,21 +21,17 @@ func getContextWithTimeout(duration time.Duration) context.Context {
 	return ctx
 }
 
-// Test_ManagementAPI_Peers tests if the peer management API returns the expected results.
+// Test_ManagementAPI_Peers_ValidRequests tests if the peer management API returns the expected results.
 // 1. Run docker network.
 // 2. List all peers of node 1.
 // 3. Delete a peer from node 1.
 // 4. List all peers of node 1 again and check if the peer was deleted.
 // 5. Re-Add the peer to node 1.
 // 6. List all peers of node 1 again and check if the peer was added.
-func Test_ManagementAPI_Peers(t *testing.T) {
+func Test_ManagementAPI_Peers_ValidRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -45,8 +40,8 @@ func Test_ManagementAPI_Peers(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
@@ -123,12 +118,8 @@ func Test_ManagementAPI_Peers(t *testing.T) {
 
 func Test_ManagementAPI_Peers_BadRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -137,8 +128,8 @@ func Test_ManagementAPI_Peers_BadRequests(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
@@ -187,13 +178,7 @@ func Test_ManagementAPI_Peers_BadRequests(t *testing.T) {
 
 func Test_ManagementAPI_Pruning(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(0, time.Now().Unix(), 10, 3),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 5),
-			iotago.WithCongestionControlOptions(1, 1, 1, 400_000, 250_000, 50_000_000, 1000, 100),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
 	)
 	defer d.Stop()
 
@@ -203,8 +188,8 @@ func Test_ManagementAPI_Pruning(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
@@ -268,13 +253,8 @@ func Test_ManagementAPI_Pruning(t *testing.T) {
 
 func Test_ManagementAPI_Snapshots(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(0, time.Now().Unix(), 10, 3),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 5),
-			iotago.WithCongestionControlOptions(1, 1, 1, 400_000, 250_000, 50_000_000, 1000, 100),
-			iotago.WithRewardsOptions(8, 10, 2, 384),
-			iotago.WithTargetCommitteeSize(4),
-		))
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+	)
 	defer d.Stop()
 
 	d.AddValidatorNode("V1", "docker-network-inx-validator-1-1", "http://localhost:8050", "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6")
@@ -283,8 +263,8 @@ func Test_ManagementAPI_Snapshots(t *testing.T) {
 	d.AddValidatorNode("V4", "docker-network-inx-validator-4-1", "http://localhost:8040", "rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw")
 	d.AddNode("node5", "docker-network-node-5-1", "http://localhost:8080")
 
-	runErr := d.Run()
-	require.NoError(t, runErr)
+	err := d.Run()
+	require.NoError(t, err)
 
 	d.WaitUntilNetworkReady()
 
