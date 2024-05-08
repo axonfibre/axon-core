@@ -13,7 +13,18 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/api"
 )
+
+func calcNextEpoch(nodeStatus *api.InfoResNodeStatus, timeProvider *iotago.TimeProvider, minEpoch iotago.EpochIndex) iotago.EpochIndex {
+	currentEpoch := timeProvider.EpochFromSlot(nodeStatus.LatestAcceptedBlockSlot)
+
+	if currentEpoch+1 > minEpoch {
+		return currentEpoch + 1
+	}
+
+	return minEpoch
+}
 
 // Test_SmallerCommittee tests if the committee rotated to a smaller committee than targetCommitteeSize
 // if less than targetCommitteeSize validators issued candidacy payloads.
@@ -42,19 +53,21 @@ func Test_SmallerCommittee(t *testing.T) {
 	status := d.NodeStatus("V1")
 
 	clt := d.DefaultWallet().Client
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
+	initialEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
 
 	// stop inx-validator plugin of validator 2
 	err = d.StopContainer(d.Node("V2").ContainerName)
 	require.NoError(t, err)
 
-	d.AssertCommittee(currentEpoch+2, d.AccountsFromNodes(d.Nodes("V1", "V3", "V4")...))
+	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), initialEpoch+2)
+	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes("V1", "V3", "V4")...))
 
 	// restart inx-validator plugin of validator 2
 	err = d.RestartContainer(d.Node("V2").ContainerName)
 	require.NoError(t, err)
 
-	d.AssertCommittee(currentEpoch+3, d.AccountsFromNodes(d.Nodes()...))
+	nextEpoch = calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), nextEpoch+1)
+	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes()...))
 }
 
 // Test_ReuseDueToNoFinalization tests if the committee members are the same (reused) due to no slot finalization at epochNearingThreshold and recovery after finalization comes back.
@@ -80,45 +93,49 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	// stop 2 validators, finalization should stop
+	// stop 2 inx-validator plugins, finalization should stop
 	err = d.StopContainer(d.Node("V2").ContainerName, d.Node("V3").ContainerName)
 	require.NoError(t, err)
 
 	clt := d.DefaultWallet().Client
 	status := d.NodeStatus("V1")
 
+	// store initial finalized slot
 	prevFinalizedSlot := status.LatestFinalizedSlot
-	fmt.Println("First finalized slot: ", prevFinalizedSlot)
-
 	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(prevFinalizedSlot)
 
-	// Due to no finalization, committee should be reused, remain 4 validators
-	d.AssertCommittee(currentEpoch+2, d.AccountsFromNodes(d.Nodes()...))
+	// due to no finalization, committee should be reused, remain 4 validators
+	// we check 2 epochs ahead
+	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), currentEpoch+2)
+	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes()...))
 
 	// check if finalization stops
-	fmt.Println("Second finalized slot: ", status.LatestFinalizedSlot)
-	d.AssertFinalizedSlot(func(newFinalizedSlot iotago.SlotIndex) error {
-		if prevFinalizedSlot == newFinalizedSlot {
+	d.AssertFinalizedSlot(func(nodeName string, latestFinalizedSlot iotago.SlotIndex) error {
+		if prevFinalizedSlot == latestFinalizedSlot {
+			// finalization should have stopped
 			return nil
 		}
 
-		return ierrors.Errorf("NO finalization should happened, First finalized slot: %d, Second finalized slot: %d", prevFinalizedSlot, status.LatestFinalizedSlot)
+		return ierrors.Errorf("No finalization should have happened, Previous finalized slot: %d, Latest finalized slot: %d, Node: %s", prevFinalizedSlot, latestFinalizedSlot, nodeName)
 	})
 
 	// revive 1 validator, committee size should be 3, finalization should resume
 	err = d.RestartContainer(d.Node("V2").ContainerName)
 	require.NoError(t, err)
 
-	d.AssertCommittee(currentEpoch+3, d.AccountsFromNodes(d.Nodes("V1", "V2", "V4")...))
+	d.WaitUntilNodesHealthy()
+
+	nextEpoch = calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), nextEpoch+1)
+	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes("V1", "V2", "V4")...))
 
 	// wait finalization to catch up and check if the finalization resumes
 	time.Sleep(5 * time.Second)
-	d.AssertFinalizedSlot(func(newFinalizedSlot iotago.SlotIndex) error {
-		if prevFinalizedSlot < newFinalizedSlot {
+	d.AssertFinalizedSlot(func(nodeName string, latestFinalizedSlot iotago.SlotIndex) error {
+		if prevFinalizedSlot < latestFinalizedSlot {
 			return nil
 		}
 
-		return ierrors.Errorf("Finalization should happened, Second finalized slot: %d, Third finalized slot: %d", prevFinalizedSlot, status.LatestFinalizedSlot)
+		return ierrors.Errorf("Finalization should have happened, Previous finalized slot: %d, Latest finalized slot: %d, Node: %s", prevFinalizedSlot, latestFinalizedSlot, nodeName)
 	})
 }
 
@@ -157,12 +174,12 @@ func Test_NoCandidacyPayload(t *testing.T) {
 	d.AssertCommittee(currentEpoch+2, d.AccountsFromNodes(d.Nodes()...))
 
 	// check if finalization continues
-	d.AssertFinalizedSlot(func(newFinalizedSlot iotago.SlotIndex) error {
-		if prevFinalizedSlot < newFinalizedSlot {
+	d.AssertFinalizedSlot(func(nodeName string, latestFinalizedSlot iotago.SlotIndex) error {
+		if prevFinalizedSlot < latestFinalizedSlot {
 			return nil
 		}
 
-		return ierrors.Errorf("Finalization should happened, First finalized slot: %d, Second finalized slot: %d", prevFinalizedSlot, newFinalizedSlot)
+		return ierrors.Errorf("Finalization should have happened, Previous finalized slot: %d, Latest finalized slot: %d, Node: %s", prevFinalizedSlot, latestFinalizedSlot, nodeName)
 	})
 
 	// Start issuing candidacy payloads for 3 validators, and check if committee size is 3
@@ -197,11 +214,16 @@ func Test_Staking(t *testing.T) {
 	// create implicit account for the validator
 	wallet, implicitAccountOutputData := d.CreateImplicitAccount(ctx)
 
+	blockIssuance := wallet.GetNewBlockIssuanceResponse()
+
+	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
+	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
+
 	// create account with staking feature for the validator
 	accountData := d.CreateAccountFromImplicitAccount(wallet,
 		implicitAccountOutputData,
-		wallet.GetNewBlockIssuanceResponse(),
-		dockertestframework.WithStakingFeature(100, 1, 0),
+		blockIssuance,
+		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch),
 	)
 
 	d.AssertValidatorExists(accountData.Address)
