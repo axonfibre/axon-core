@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -285,44 +284,100 @@ func Test_ValidatorsAPI(t *testing.T) {
 	// Create registered validators
 	var wg sync.WaitGroup
 	clt := d.DefaultWallet().Client
-	status := d.NodeStatus("V1")
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
-	expectedValidators := d.AccountsFromNodes(d.Nodes()...)
 
-	for i := 0; i < 50; i++ {
+	// get the initial validators
+	expectedValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
+
+	type validatorData struct {
+		wallet                    *mock.Wallet
+		implicitAccountOutputData *mock.OutputData
+	}
+
+	validatorCount := 50
+	validatorDataList := make([]validatorData, validatorCount)
+
+	for i := range validatorCount {
 		wg.Add(1)
-		go func() {
+
+		// first create all implicit accounts in parallel
+		go func(validatorNr int) {
 			defer wg.Done()
 
 			// create implicit accounts for every validator
 			wallet, implicitAccountOutputData := d.CreateImplicitAccount(ctx)
 
+			validatorDataList[validatorNr] = validatorData{
+				wallet:                    wallet,
+				implicitAccountOutputData: implicitAccountOutputData,
+			}
+		}(i)
+	}
+
+	// wait until all implicit accounts are created
+	wg.Wait()
+
+	blockIssuance, err := clt.BlockIssuance(ctx)
+	require.NoError(t, err)
+
+	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
+	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
+
+	// create a new wait group for the next step
+	wg = sync.WaitGroup{}
+
+	// create accounts with staking feature and issue candidacy payload
+	for i := range validatorCount {
+		wg.Add(1)
+
+		go func(validatorNr int) {
+			defer wg.Done()
+
 			// create account with staking feature for every validator
-			accountData := d.CreateAccountFromImplicitAccount(wallet,
-				implicitAccountOutputData,
-				wallet.GetNewBlockIssuanceResponse(),
-				dockertestframework.WithStakingFeature(100, 1, currentEpoch),
+			accountData := d.CreateAccountFromImplicitAccount(validatorDataList[validatorNr].wallet,
+				validatorDataList[validatorNr].implicitAccountOutputData,
+				blockIssuance,
+				dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch),
 			)
 
 			expectedValidators = append(expectedValidators, accountData.Address.Bech32(hrp))
-
-			// issue candidacy payload in the next epoch (currentEpoch + 1), in order to issue it before epochNearingThreshold
-			d.AwaitCommitment(clt.CommittedAPI().TimeProvider().EpochEnd(currentEpoch))
-			blkID := d.IssueCandidacyPayloadFromAccount(ctx, wallet)
-			fmt.Println("Candidacy payload:", blkID.ToHex(), blkID.Slot())
-			d.AwaitCommitment(blkID.Slot())
-		}()
+		}(i)
 	}
 	wg.Wait()
 
-	// get all validators of currentEpoch+1 with pageSize 10
+	// create a new wait group for the next step
+	wg = sync.WaitGroup{}
+
+	// issue candidacy payload in the next epoch (currentEpoch + 1), in order to issue it before epochNearingThreshold
+	d.AwaitEpochFinalized()
+
+	// issue candidacy payload for each account
+	for i := range validatorCount {
+		wg.Add(1)
+
+		go func(validatorNr int) {
+			defer wg.Done()
+
+			blkID := d.IssueCandidacyPayloadFromAccount(validatorDataList[validatorNr].wallet)
+			fmt.Println("Candidacy payload:", blkID.ToHex(), blkID.Slot())
+			d.AwaitCommitment(blkID.Slot())
+		}(i)
+	}
+	wg.Wait()
+
+	// check that the validators still match the initial ones
 	actualValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
+	require.ElementsMatch(t, expectedValidators, actualValidators)
+
+	// check if all validators are returned from the validators API with pageSize 10
+	status := d.NodeStatus("V1")
+	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
+	actualValidators = getAllValidatorsOnEpoch(t, clt, stakingStartEpoch, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 
 	// wait until currentEpoch+3 and check the results again
 	targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(currentEpoch + 2)
 	d.AwaitCommitment(targetSlot)
-	actualValidators = getAllValidatorsOnEpoch(t, clt, currentEpoch+1, 10)
+	actualValidators = getAllValidatorsOnEpoch(t, clt, currentEpoch+2, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 }
 
