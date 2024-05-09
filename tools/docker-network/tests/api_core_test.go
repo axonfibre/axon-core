@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -259,7 +260,10 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 // 5. Wait until next epoch then check again if the results remain.
 func Test_ValidatorsAPI(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
+			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
+		),
 	)
 	defer d.Stop()
 
@@ -286,7 +290,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	clt := d.DefaultWallet().Client
 
 	// get the initial validators
-	expectedValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
+	expectedValidators := d.AccountsFromNodes(d.Nodes()...)
 
 	type validatorData struct {
 		wallet                    *mock.Wallet
@@ -320,6 +324,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
+	fullAccountCreationEpoch := clt.CommittedAPI().TimeProvider().CurrentEpoch()
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// create a new wait group for the next step
@@ -347,8 +352,8 @@ func Test_ValidatorsAPI(t *testing.T) {
 	// create a new wait group for the next step
 	wg = sync.WaitGroup{}
 
-	// issue candidacy payload in the next epoch (currentEpoch + 1), in order to issue it before epochNearingThreshold
-	d.AwaitEpochFinalized()
+	// issue candidacy payload in the next epoch (fullAccountCreationEpoch + 1), in order to issue it before epochNearingThreshold
+	d.AwaitCommitment(clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch))
 
 	// issue candidacy payload for each account
 	for i := range validatorCount {
@@ -359,25 +364,20 @@ func Test_ValidatorsAPI(t *testing.T) {
 
 			blkID := d.IssueCandidacyPayloadFromAccount(validatorDataList[validatorNr].wallet)
 			fmt.Println("Candidacy payload:", blkID.ToHex(), blkID.Slot())
-			d.AwaitCommitment(blkID.Slot())
 		}(i)
 	}
 	wg.Wait()
 
-	// check that the validators still match the initial ones
+	d.AwaitCommitment(clt.CommittedAPI().TimeProvider().CurrentSlot())
+
+	// check if all validators are returned from the validators API with pageSize 10
 	actualValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 
-	// check if all validators are returned from the validators API with pageSize 10
-	status := d.NodeStatus("V1")
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
-	actualValidators = getAllValidatorsOnEpoch(t, clt, stakingStartEpoch, 10)
-	require.ElementsMatch(t, expectedValidators, actualValidators)
-
-	// wait until currentEpoch+3 and check the results again
-	targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(currentEpoch + 2)
+	// wait until fullAccountCreationEpoch+1 and check the results again
+	targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch + 1)
 	d.AwaitCommitment(targetSlot)
-	actualValidators = getAllValidatorsOnEpoch(t, clt, currentEpoch+2, 10)
+	actualValidators = getAllValidatorsOnEpoch(t, clt, fullAccountCreationEpoch+1, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 }
 
