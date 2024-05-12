@@ -17,7 +17,12 @@ import (
 
 func Test_SyncFromSnapshot(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(
+			append(
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				iotago.WithTargetCommitteeSize(3),
+			)...,
+		),
 	)
 	defer d.Stop()
 
