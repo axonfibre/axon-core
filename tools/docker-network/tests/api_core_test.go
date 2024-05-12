@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -260,10 +259,7 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 // 5. Wait until next epoch then check again if the results remain.
 func Test_ValidatorsAPI(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(
-			iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 4),
-			iotago.WithLivenessOptions(10, 10, 2, 4, 8),
-		),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
 	)
 	defer d.Stop()
 
