@@ -358,7 +358,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 		go func(validatorNr int) {
 			defer wg.Done()
 
-			blkID := d.IssueCandidacyPayloadFromAccount(validatorDataList[validatorNr].wallet)
+			blkID := d.IssueCandidacyPayloadFromAccount(ctx, validatorDataList[validatorNr].wallet)
 			fmt.Println("Candidacy payload:", blkID.ToHex(), blkID.Slot())
 		}(i)
 	}
