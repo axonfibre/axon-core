@@ -46,10 +46,7 @@ type BlockIssuer struct {
 	keyManager *wallet.KeyManager
 	Client     Client
 
-	// latestBlockIssuanceResp is the cached response from the latest query to the block issuance endpoint.
-	latestBlockIssuanceResp   *api.IssuanceBlockHeaderResponse
-	blockIssuanceResponseUsed bool
-	mutex                     syncutils.RWMutex
+	mutex syncutils.RWMutex
 
 	AccountData *AccountData
 }
@@ -65,13 +62,12 @@ func NewBlockIssuer(t *testing.T, name string, keyManager *wallet.KeyManager, cl
 	accountData.ID.RegisterAlias(name)
 
 	return options.Apply(&BlockIssuer{
-		Testing:                   t,
-		Name:                      name,
-		Validator:                 validator,
-		keyManager:                keyManager,
-		Client:                    client,
-		blockIssuanceResponseUsed: true,
-		AccountData:               accountData,
+		Testing:     t,
+		Name:        name,
+		Validator:   validator,
+		keyManager:  keyManager,
+		Client:      client,
+		AccountData: accountData,
 	}, opts)
 }
 
@@ -216,13 +212,14 @@ func (i *BlockIssuer) CreateAndSubmitValidationBlock(ctx context.Context, alias 
 func (i *BlockIssuer) CreateBasicBlock(ctx context.Context, alias string, opts ...options.Option[BasicBlockParams]) (*blocks.Block, error) {
 	blockParams := options.Apply(&BasicBlockParams{BlockHeader: &BlockHeaderParams{}}, opts)
 
-	blockIssuanceInfo := i.latestBlockIssuanceResponse(ctx)
+	blockIssuanceInfo, err := i.Client.BlockIssuance(ctx)
+	require.NoError(i.Testing, err)
 
 	if blockParams.BlockHeader.References == nil {
 		blockParams.BlockHeader.References = referencesFromBlockIssuanceResponse(blockIssuanceInfo)
 	}
 
-	err := i.setDefaultBlockParams(ctx, blockParams.BlockHeader)
+	err = i.setDefaultBlockParams(ctx, blockParams.BlockHeader)
 	require.NoError(i.Testing, err)
 
 	api := i.Client.APIForTime(*blockParams.BlockHeader.IssuingTime)
@@ -269,9 +266,6 @@ func (i *BlockIssuer) CreateBasicBlock(ctx context.Context, alias string, opts .
 	require.NoError(i.Testing, err)
 
 	modelBlock.ID().RegisterAlias(alias)
-
-	// mark the response as used so that the next time we query the node for the latest block issuance.
-	i.blockIssuanceResponseUsed = true
 
 	return blocks.NewBlock(modelBlock), err
 }
@@ -405,31 +399,8 @@ func (i *BlockIssuer) retrieveAPI(blockParams *BlockHeaderParams) iotago.API {
 }
 
 func (i *BlockIssuer) GetNewBlockIssuanceResponse() *api.IssuanceBlockHeaderResponse {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	i.blockIssuanceResponseUsed = false
 	resp, err := i.Client.BlockIssuance(context.Background())
 	require.NoError(i.Testing, err)
-	i.latestBlockIssuanceResp = resp
 
-	return i.latestBlockIssuanceResp
-}
-
-func (i *BlockIssuer) latestBlockIssuanceResponse(context context.Context) *api.IssuanceBlockHeaderResponse {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	// If the response was already used to issue a block, we need to get a new response from the node.
-	// Otherwise we can reuse the cached response. For transactions with commitment inputs, we want to get a fresh response
-	// for the transaction creation, and then reuse that response for the block issuance, so we only mark the response as used
-	// if it was used for block issuance.
-	if i.blockIssuanceResponseUsed {
-		i.blockIssuanceResponseUsed = false
-		resp, err := i.Client.BlockIssuance(context)
-		require.NoError(i.Testing, err)
-		i.latestBlockIssuanceResp = resp
-	}
-
-	return i.latestBlockIssuanceResp
+	return resp
 }
