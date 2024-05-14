@@ -27,6 +27,7 @@ func Test_ValidatorRewards(t *testing.T) {
 			append(
 				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
 				iotago.WithStakingOptions(2, 10, 10),
+				iotago.WithTargetCommitteeSize(6),
 			)...,
 		),
 	)
