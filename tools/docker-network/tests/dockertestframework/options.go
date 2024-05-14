@@ -19,8 +19,8 @@ var DefaultProtocolParametersOptions = []options.Option[iotago.V3ProtocolParamet
 
 // ShortSlotsAndEpochsProtocolParametersOptions sets the protocol parameters to have 5s slots and 40s epochs.
 var ShortSlotsAndEpochsProtocolParametersOptions = []options.Option[iotago.V3ProtocolParameters]{
-	iotago.WithTimeProviderOptions(5, time.Now().Unix(), 5, 3),
-	iotago.WithLivenessOptions(5, 5, 2, 4, 5),
+	iotago.WithTimeProviderOptions(5, time.Now().Unix(), 10, 3),
+	iotago.WithLivenessOptions(10, 10, 2, 4, 5),
 	iotago.WithCongestionControlOptions(1, 1, 1, 200_000_000, 125_000_000, 50_000_000, 1000, 100),
 	iotago.WithRewardsOptions(8, 10, 2, 384),
 	iotago.WithTargetCommitteeSize(4),
