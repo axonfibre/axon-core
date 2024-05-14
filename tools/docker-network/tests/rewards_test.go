@@ -61,14 +61,12 @@ func Test_ValidatorRewards(t *testing.T) {
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 	// Set end epoch so the staking feature can be removed as soon as possible.
-	endEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
-	// The earliest epoch in which we can remove the staking feature and claim rewards.
-	goodClaimingSlot := clt.CommittedAPI().TimeProvider().EpochStart(endEpoch + 1)
+	goodEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
 
 	goodAccountData := d.CreateAccountFromImplicitAccount(goodWallet,
 		goodAccountOutputData,
 		blockIssuance,
-		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch, endEpoch),
+		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch, goodEndEpoch),
 	)
 
 	initialMana := goodAccountData.Output.StoredMana()
@@ -76,7 +74,7 @@ func Test_ValidatorRewards(t *testing.T) {
 		d,
 		goodWallet,
 		clt.CommittedAPI().TimeProvider().CurrentSlot(),
-		goodClaimingSlot)
+		clt.CommittedAPI().TimeProvider().EpochStart(goodEndEpoch))
 
 	// create lazy account
 	lazyWallet, lazyAccountOutputData := d.CreateImplicitAccount(ctx)
@@ -86,13 +84,13 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	latestCommitmentSlot = blockIssuance.LatestCommitment.Slot
 	stakingStartEpoch = d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
-	endEpoch = stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
-	lazyClaimingSlot := clt.CommittedAPI().TimeProvider().EpochStart(endEpoch + 1)
+	lazyEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
+	lazyClaimingSlot := clt.CommittedAPI().TimeProvider().EpochStart(lazyEndEpoch + 1)
 
 	lazyAccountData := d.CreateAccountFromImplicitAccount(lazyWallet,
 		lazyAccountOutputData,
 		blockIssuance,
-		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch, endEpoch),
+		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch, lazyEndEpoch),
 	)
 
 	lazyInitialMana := lazyAccountData.Output.StoredMana()
@@ -100,7 +98,7 @@ func Test_ValidatorRewards(t *testing.T) {
 		d,
 		lazyWallet,
 		clt.CommittedAPI().TimeProvider().CurrentSlot(),
-		lazyClaimingSlot)
+		clt.CommittedAPI().TimeProvider().EpochStart(lazyEndEpoch))
 
 	// make sure the account is in the committee, so it can issue validation blocks
 	goodAccountAddrBech32 := goodAccountData.Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
@@ -114,8 +112,8 @@ func Test_ValidatorRewards(t *testing.T) {
 	fmt.Println("Issue validation blocks, wait for ", secToWait, "until expected slot: ", lazyClaimingSlot)
 
 	var wg sync.WaitGroup
-	issueValidationBlockInBackground(ctx, &wg, goodWallet, currentSlot, goodClaimingSlot, 5)
-	issueValidationBlockInBackground(ctx, &wg, lazyWallet, currentSlot, lazyClaimingSlot, 1)
+	issueValidationBlockInBackground(ctx, &wg, goodWallet, currentSlot, clt.CommittedAPI().TimeProvider().EpochEnd(goodEndEpoch), 5)
+	issueValidationBlockInBackground(ctx, &wg, lazyWallet, currentSlot, clt.CommittedAPI().TimeProvider().EpochEnd(lazyEndEpoch), 1)
 
 	wg.Wait()
 
