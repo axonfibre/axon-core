@@ -680,8 +680,8 @@ func Test_CoreAPI_ValidRequests(t *testing.T) {
 					resp, err := client.Rewards(context.Background(), outputID)
 					require.NoError(t, err)
 					require.NotNil(t, resp)
-					// rewards are zero, because we do not wait for the epoch end
-					require.EqualValues(t, 0, resp.Rewards)
+					// rewards can be greater or equal to 0 due to short slots and epochs, the delegation happened earlier could gain rewards since it waits over epochs
+					require.GreaterOrEqual(t, resp.Rewards, iotago.Mana(0))
 				})
 			},
 		},
