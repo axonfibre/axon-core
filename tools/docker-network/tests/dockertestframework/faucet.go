@@ -116,7 +116,7 @@ func (d *DockerTestFramework) RequestFaucetFundsAndAllotManaTo(fromWallet *mock.
 	d.AwaitTransactionPayloadAccepted(ctx, signedTx.Transaction.MustID())
 
 	// allotment is updated when the transaction is committed
-	d.AwaitCommitment(block.ID().Slot())
+	d.AwaitCommittedSlot(block.ID().Slot())
 
 	// check if the mana is allotted
 	toCongestionResp, err := clt.Congestion(ctx, to.Address, 0, preAllotmentCommitmentID)

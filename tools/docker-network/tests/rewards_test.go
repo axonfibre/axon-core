@@ -124,7 +124,7 @@ func Test_ValidatorRewards(t *testing.T) {
 	wg.Wait()
 
 	// claim rewards that put to the account output
-	d.AwaitCommitment(validationBlocksEndSlot)
+	d.AwaitCommittedSlot(validationBlocksEndSlot)
 	d.ClaimRewardsForValidator(ctx, goodValidator)
 	d.ClaimRewardsForValidator(ctx, lazyValidator)
 
@@ -173,7 +173,7 @@ func Test_DelegatorRewards(t *testing.T) {
 
 	// delegate funds to V2
 	delegationOutputData := d.DelegateToValidator(delegatorWallet, d.Node("V2").AccountAddress(t))
-	d.AwaitCommitment(delegationOutputData.ID.CreationSlot())
+	d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot())
 
 	// check if V2 received the delegator stake
 	v2Resp, err := clt.Validator(ctx, d.Node("V2").AccountAddress(t))
@@ -236,7 +236,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	{
 		// delegate funds to V2
 		delegationOutputData := d.DelegateToValidator(delegatorWallet, d.Node("V2").AccountAddress(t))
-		d.AwaitCommitment(delegationOutputData.ID.CreationSlot())
+		d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot())
 
 		// check if V2 received the delegator stake
 		v2Resp, err := clt.Validator(ctx, d.Node("V2").AccountAddress(t))
@@ -249,7 +249,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 		latestCommitmentSlot := delegatorWallet.GetNewBlockIssuanceResponse().LatestCommitment.Slot
 		delegationEndEpoch := dockertestframework.GetDelegationEndEpoch(apiForSlot, currentSlot, latestCommitmentSlot)
 		delegationOutputData = d.DelayedClaimingTransition(ctx, delegatorWallet, delegationOutputData)
-		d.AwaitCommitment(delegationOutputData.ID.CreationSlot())
+		d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot())
 
 		// the delegated stake should be removed from the validator, so the pool stake should equal to the validator stake
 		v2Resp, err = clt.Validator(ctx, d.Node("V2").AccountAddress(t))
@@ -274,7 +274,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 
 		// delay claiming rewards in the same slot of delegation
 		delegationOutputData = d.DelayedClaimingTransition(ctx, delegatorWallet, delegationOutputData)
-		d.AwaitCommitment(delegationOutputData.ID.CreationSlot())
+		d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot())
 
 		// the delegated stake should be 0, thus poolStake should be equal to validatorStake
 		v2Resp, err := clt.Validator(ctx, d.Node("V2").AccountAddress(t))
@@ -299,7 +299,7 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 			}
 
 			// wait until the epoch start is reached
-			d.AwaitSlot(d.DefaultWallet().Client.CommittedAPI().TimeProvider().EpochStart(epoch))
+			d.AwaitLatestAcceptedBlockSlot(d.DefaultWallet().Client.CommittedAPI().TimeProvider().EpochStart(epoch))
 			if ctx.Err() != nil {
 				// context is canceled
 				return
@@ -337,7 +337,7 @@ func issueValidationBlocksInBackground(ctx context.Context, d *dockertestframewo
 			}
 
 			// wait until the slot is reached
-			d.AwaitSlot(slot)
+			d.AwaitLatestAcceptedBlockSlot(slot)
 			if ctx.Err() != nil {
 				// context is canceled
 				return

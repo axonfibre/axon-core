@@ -46,7 +46,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 
 		// delegate funds to receiver
 		delegationOutputData := d.DelegateToValidator(delegatorWallet, receiver.AccountAddress(t))
-		d.AwaitCommitment(delegationOutputData.ID.CreationSlot())
+		d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot())
 
 		// check if receiver received the delegator stake
 		resp, err := clt.Validator(ctx, receiver.AccountAddress(t))

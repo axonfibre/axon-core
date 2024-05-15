@@ -46,7 +46,7 @@ func Test_ManagementAPI_Peers_ValidRequests(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	// wait longer for autopeering
-	d.AwaitCommitment(d.DefaultWallet().CurrentSlot())
+	d.AwaitCommittedSlot(d.DefaultWallet().CurrentSlot())
 
 	// get the management client
 	managementClient, err := d.Client("V1").Management(getContextWithTimeout(5 * time.Second))

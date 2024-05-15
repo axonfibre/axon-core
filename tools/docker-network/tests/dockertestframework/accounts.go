@@ -44,7 +44,7 @@ func (d *DockerTestFramework) CheckAccountStatus(ctx context.Context, blkID iota
 	d.AwaitTransactionPayloadAccepted(ctx, txID)
 
 	// wait for the account to be committed
-	d.AwaitCommitment(slot)
+	d.AwaitCommittedSlot(slot)
 
 	// Check the indexer
 	if len(checkIndexer) > 0 && checkIndexer[0] {
@@ -209,7 +209,7 @@ func (d *DockerTestFramework) CreateNativeToken(fromWallet *mock.Wallet, mintedA
 	fmt.Println("Create native tokens transaction sent, blkID:", block.ID().ToHex(), ", txID:", signedTx.Transaction.MustID().ToHex(), ", slot:", block.ID().Slot())
 
 	// wait for the account to be committed
-	d.AwaitCommitment(block.ID().Slot())
+	d.AwaitCommittedSlot(block.ID().Slot())
 
 	d.AssertIndexerAccount(fromWallet.BlockIssuer.AccountData)
 	//nolint:forcetypeassert

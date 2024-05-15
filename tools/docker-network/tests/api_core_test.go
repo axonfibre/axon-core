@@ -319,7 +319,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	}
 	wg.Wait()
 
-	d.AwaitCommitment(clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch))
+	d.AwaitCommittedSlot(clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch))
 
 	// check if all validators are returned from the validators API with pageSize 10
 	actualValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
@@ -327,7 +327,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 
 	// wait until fullAccountCreationEpoch+1 and check the results again
 	targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch + 1)
-	d.AwaitCommitment(targetSlot)
+	d.AwaitCommittedSlot(targetSlot)
 	actualValidators = getAllValidatorsOnEpoch(t, clt, fullAccountCreationEpoch+1, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 }
@@ -352,7 +352,7 @@ func Test_CoreAPI_ValidRequests(t *testing.T) {
 	assetsPerSlot, lastSlot := prepareAssets(d, 5)
 
 	fmt.Println("Await finalisation of slot", lastSlot)
-	d.AwaitFinalization(lastSlot)
+	d.AwaitFinalizedSlot(lastSlot)
 
 	tests := []struct {
 		name     string
