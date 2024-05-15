@@ -319,26 +319,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	}
 	wg.Wait()
 
-	// create a new wait group for the next step
-	wg = sync.WaitGroup{}
-
-	// issue candidacy payload in the next epoch (fullAccountCreationEpoch + 1), in order to issue it before epochNearingThreshold
 	d.AwaitCommitment(clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch))
-
-	// issue candidacy payload for each account
-	for i := range validatorCount {
-		wg.Add(1)
-
-		go func(validatorNr int) {
-			defer wg.Done()
-
-			blkID := d.IssueCandidacyPayloadFromAccount(ctx, validatorDataList[validatorNr].wallet)
-			fmt.Println("Candidacy payload:", blkID.ToHex(), blkID.Slot())
-		}(i)
-	}
-	wg.Wait()
-
-	d.AwaitCommitment(clt.CommittedAPI().TimeProvider().CurrentSlot())
 
 	// check if all validators are returned from the validators API with pageSize 10
 	actualValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
