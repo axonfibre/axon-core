@@ -282,39 +282,14 @@ func Test_ValidatorsAPI(t *testing.T) {
 	})
 
 	// Create registered validators
-	var wg sync.WaitGroup
 	clt := d.DefaultWallet().Client
 
 	// get the initial validators
 	expectedValidators := d.AccountsFromNodes(d.Nodes()...)
 
-	type validatorData struct {
-		wallet                    *mock.Wallet
-		implicitAccountOutputData *mock.OutputData
-	}
-
 	validatorCount := 50
-	validatorDataList := make([]validatorData, validatorCount)
 
-	for i := range validatorCount {
-		wg.Add(1)
-
-		// first create all implicit accounts in parallel
-		go func(validatorNr int) {
-			defer wg.Done()
-
-			// create implicit accounts for every validator
-			wallet, implicitAccountOutputData := d.CreateImplicitAccount(ctx)
-
-			validatorDataList[validatorNr] = validatorData{
-				wallet:                    wallet,
-				implicitAccountOutputData: implicitAccountOutputData,
-			}
-		}(i)
-	}
-
-	// wait until all implicit accounts are created
-	wg.Wait()
+	implicitAccountsValidators := d.CreateImplicitAccounts(ctx, validatorCount)
 
 	blockIssuance, err := clt.BlockIssuance(ctx)
 	require.NoError(t, err)
@@ -324,7 +299,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// create a new wait group for the next step
-	wg = sync.WaitGroup{}
+	var wg sync.WaitGroup
 
 	// create accounts with staking feature and issue candidacy payload
 	for i := range validatorCount {
@@ -334,13 +309,12 @@ func Test_ValidatorsAPI(t *testing.T) {
 			defer wg.Done()
 
 			// create account with staking feature for every validator
-			accountData := d.CreateAccountFromImplicitAccount(validatorDataList[validatorNr].wallet,
-				validatorDataList[validatorNr].implicitAccountOutputData,
+			accountWithWallet := d.CreateAccountFromImplicitAccount(implicitAccountsValidators[validatorNr],
 				blockIssuance,
 				dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch),
 			)
 
-			expectedValidators = append(expectedValidators, accountData.Address.Bech32(hrp))
+			expectedValidators = append(expectedValidators, accountWithWallet.Account().Address.Bech32(hrp))
 		}(i)
 	}
 	wg.Wait()

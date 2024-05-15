@@ -62,6 +62,26 @@ func NewAccountData(accountID iotago.AccountID, optAddressIndex ...uint32) *Acco
 	}
 }
 
+type AccountWithWallet struct {
+	account *AccountData
+	wallet  *Wallet
+}
+
+func NewAccountWithWallet(account *AccountData, wallet *Wallet) *AccountWithWallet {
+	return &AccountWithWallet{
+		account: account,
+		wallet:  wallet,
+	}
+}
+
+func (a *AccountWithWallet) Account() *AccountData {
+	return a.account
+}
+
+func (a *AccountWithWallet) Wallet() *Wallet {
+	return a.wallet
+}
+
 // WalletClock is an interface that provides the current slot.
 type WalletClock interface {
 	SetCurrentSlot(slot iotago.SlotIndex)

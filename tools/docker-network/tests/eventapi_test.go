@@ -243,15 +243,15 @@ func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	// implicit account transition
 	{
 		// create an implicit account by requesting faucet funds
-		wallet, implicitAccountOutputData := e.DockerTestFramework().CreateImplicitAccount(ctx)
+		implicitAccount := e.DockerTestFramework().CreateImplicitAccount(ctx)
 
 		// prepare account transition block
-		accountData, _, blk := e.DockerTestFramework().TransitionImplicitAccountToAccountOutputBlock(wallet, implicitAccountOutputData, wallet.GetNewBlockIssuanceResponse())
+		accountData, _, blk := e.DockerTestFramework().TransitionImplicitAccountToAccountOutputBlock(implicitAccount, implicitAccount.Wallet().GetNewBlockIssuanceResponse())
 
 		expectedBlocks := map[string]*iotago.Block{
 			blk.MustID().ToHex(): blk,
 		}
-		accountOutputData := wallet.Output(accountData.OutputID)
+		accountOutputData := implicitAccount.Wallet().Output(accountData.OutputID)
 
 		assertions := []func(){
 			func() { e.AssertTransactionBlocks(ctx, eventClt, expectedBlocks) },

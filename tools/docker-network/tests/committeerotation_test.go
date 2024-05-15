@@ -217,21 +217,20 @@ func Test_Staking(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// create implicit account for the validator
-	wallet, implicitAccountOutputData := d.CreateImplicitAccount(ctx)
+	implicitAccount := d.CreateImplicitAccount(ctx)
 
-	blockIssuance := wallet.GetNewBlockIssuanceResponse()
+	blockIssuance := implicitAccount.Wallet().GetNewBlockIssuanceResponse()
 
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// create account with staking feature for the validator
-	accountData := d.CreateAccountFromImplicitAccount(wallet,
-		implicitAccountOutputData,
+	accountWithWallet := d.CreateAccountFromImplicitAccount(implicitAccount,
 		blockIssuance,
 		dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch),
 	)
 
-	d.AssertValidatorExists(accountData.Address)
+	d.AssertValidatorExists(accountWithWallet.Account().Address)
 }
 
 // Test_Delegation tests if committee changed due to delegation.
