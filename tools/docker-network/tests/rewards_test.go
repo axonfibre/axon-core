@@ -63,10 +63,10 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	// we want to start staking as soon as possible, but we also add another epoch as a buffer in case we miss the staking start epoch
 	// to do the candidacy announcement because of the time it takes to create the account.
-	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot) + 1
+	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// we want to claim the rewards as soon as possible
-	stakingEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
+	stakingEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod() + 1
 
 	// create accounts with staking feature for the validators
 	var wg sync.WaitGroup
@@ -97,7 +97,8 @@ func Test_ValidatorRewards(t *testing.T) {
 		issueCandidacyAnnouncementsInBackground(ctx,
 			d,
 			validator.Wallet(),
-			stakingStartEpoch,
+			// we start with the next epoch in case the stakingStartEpoch is already at EpochNearingThreshold
+			stakingStartEpoch+1,
 			// we don't need to issue candidacy payloads for the last epoch
 			stakingEndEpoch-1)
 	}
@@ -105,7 +106,7 @@ func Test_ValidatorRewards(t *testing.T) {
 	// make sure the account is in the committee, so it can issue validation blocks
 	goodValidatorAddrBech32 := goodValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 	lazyValidatorAddrBech32 := lazyValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
-	d.AssertCommittee(stakingStartEpoch+1, append(d.AccountsFromNodes(d.Nodes("V1", "V3", "V2", "V4")...), goodValidatorAddrBech32, lazyValidatorAddrBech32))
+	d.AssertCommittee(stakingStartEpoch+2, append(d.AccountsFromNodes(d.Nodes("V1", "V3", "V2", "V4")...), goodValidatorAddrBech32, lazyValidatorAddrBech32))
 
 	// create a new wait group for the next step
 	wg = sync.WaitGroup{}
@@ -309,7 +310,7 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 
 			// the candidacy announcement needs to be done before the nearing threshold
 			epochEndSlot := committedAPI.TimeProvider().EpochEnd(epoch)
-			maxRegistrationSlot := epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold()
+			maxRegistrationSlot := epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold() - 1
 
 			candidacyBlockID := d.IssueCandidacyPayloadFromAccount(ctx, wallet)
 			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the empoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
