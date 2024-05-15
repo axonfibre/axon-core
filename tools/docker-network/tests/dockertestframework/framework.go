@@ -100,10 +100,10 @@ func NewDockerTestFramework(t *testing.T, opts ...options.Option[DockerTestFrame
 }
 
 func (d *DockerTestFramework) DockerComposeUp(detach ...bool) error {
-	cmd := exec.Command("docker", "compose", "up")
+	cmd := exec.Command("docker", "compose", "--profile", "full", "up")
 
 	if len(detach) > 0 && detach[0] {
-		cmd = exec.Command("docker", "compose", "up", "-d")
+		cmd = exec.Command("docker", "compose", "--profile", "full", "up", "-d")
 	}
 
 	cmd.Env = os.Environ()
@@ -131,7 +131,7 @@ func (d *DockerTestFramework) DockerComposeUp(detach ...bool) error {
 
 func (d *DockerTestFramework) Run() error {
 	// first we remove old containers, volumes and orphans
-	_ = exec.Command("docker", "compose", "down", "-v", "--remove-orphans").Run()
+	_ = exec.Command("docker", "compose", "--profile", "full", "down", "-v", "--remove-orphans").Run()
 
 	ch := make(chan error)
 	stopCh := make(chan struct{})
@@ -188,7 +188,7 @@ func (d *DockerTestFramework) Stop() {
 	defer fmt.Println("Stop the network.....done")
 
 	// remove volumes and orphans
-	_ = exec.Command("docker", "compose", "down", "-v", "--remove-orphans").Run()
+	_ = exec.Command("docker", "compose", "--profile", "full", "down", "-v", "--remove-orphans").Run()
 	_ = exec.Command("rm", d.snapshotPath).Run() //nolint:gosec
 }
 
