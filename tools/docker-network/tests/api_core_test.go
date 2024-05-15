@@ -301,7 +301,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	// create a new wait group for the next step
 	var wg sync.WaitGroup
 
-	// create accounts with staking feature and issue candidacy payload
+	// create accounts with staking feature
 	for i := range validatorCount {
 		wg.Add(1)
 

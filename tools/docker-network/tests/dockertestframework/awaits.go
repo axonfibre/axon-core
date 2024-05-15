@@ -72,6 +72,10 @@ func (d *DockerTestFramework) AwaitTransactionFailure(ctx context.Context, txID 
 func (d *DockerTestFramework) AwaitCommitment(targetSlot iotago.SlotIndex) {
 	currentCommittedSlot := d.NodeStatus("V1").LatestCommitmentID.Slot()
 
+	if targetSlot <= currentCommittedSlot {
+		return
+	}
+
 	// we wait at max "targetSlot - currentCommittedSlot" times * slot duration
 	deadline := time.Duration(d.defaultWallet.Client.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
 	if currentCommittedSlot < targetSlot {
