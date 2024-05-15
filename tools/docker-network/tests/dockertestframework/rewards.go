@@ -11,24 +11,25 @@ import (
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
-func (d *DockerTestFramework) ClaimRewardsForValidator(ctx context.Context, validatorWallet *mock.Wallet) {
-	validatorAccountData := validatorWallet.BlockIssuer.AccountData
+func (d *DockerTestFramework) ClaimRewardsForValidator(ctx context.Context, validatorWithWallet *mock.AccountWithWallet) {
+	wallet := validatorWithWallet.Wallet()
+	validatorAccountData := validatorWithWallet.Account()
 	outputData := &mock.OutputData{
 		ID:           validatorAccountData.OutputID,
 		Address:      validatorAccountData.Address,
 		AddressIndex: validatorAccountData.AddressIndex,
 		Output:       validatorAccountData.Output,
 	}
-	signedTx := validatorWallet.ClaimValidatorRewards("", outputData)
+	signedTx := wallet.ClaimValidatorRewards("", outputData)
 
-	validatorWallet.CreateAndSubmitBasicBlock(ctx, "claim_rewards_validator", mock.WithPayload(signedTx))
+	wallet.CreateAndSubmitBasicBlock(ctx, "claim_rewards_validator", mock.WithPayload(signedTx))
 	d.AwaitTransactionPayloadAccepted(ctx, signedTx.Transaction.MustID())
 
 	// update account data of validator
-	validatorWallet.SetBlockIssuer(&mock.AccountData{
-		ID:           validatorWallet.BlockIssuer.AccountData.ID,
-		Address:      validatorWallet.BlockIssuer.AccountData.Address,
-		AddressIndex: validatorWallet.BlockIssuer.AccountData.AddressIndex,
+	validatorWithWallet.UpdateAccount(&mock.AccountData{
+		ID:           wallet.BlockIssuer.AccountData.ID,
+		Address:      wallet.BlockIssuer.AccountData.Address,
+		AddressIndex: wallet.BlockIssuer.AccountData.AddressIndex,
 		OutputID:     iotago.OutputIDFromTransactionIDAndIndex(signedTx.Transaction.MustID(), 0),
 		Output:       signedTx.Transaction.Outputs[0].(*iotago.AccountOutput),
 	})

@@ -124,8 +124,8 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	// claim rewards that put to the account output
 	d.AwaitCommitment(validationBlocksEndSlot)
-	d.ClaimRewardsForValidator(ctx, goodValidator.Wallet())
-	d.ClaimRewardsForValidator(ctx, lazyValidator.Wallet())
+	d.ClaimRewardsForValidator(ctx, goodValidator)
+	d.ClaimRewardsForValidator(ctx, lazyValidator)
 
 	// check if the mana increased as expected
 	goodValidatorFinalMana := goodValidator.Account().Output.StoredMana()
