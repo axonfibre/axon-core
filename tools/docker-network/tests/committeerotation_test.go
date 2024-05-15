@@ -217,7 +217,7 @@ func Test_Staking(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// create implicit account for the validator
-	implicitAccount := d.CreateImplicitAccount(ctx)
+	implicitAccount := d.CreateImplicitAccount(ctx, "account-1")
 
 	blockIssuance := implicitAccount.Wallet().GetNewBlockIssuanceResponse()
 
@@ -266,7 +266,7 @@ func Test_Delegation(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	// create an account to perform delegation
-	wallet, _ := d.CreateAccountFromFaucet()
+	wallet, _ := d.CreateAccountFromFaucet("account-1")
 
 	// delegate all faucet funds to V2, V2 should replace V3
 	//nolint:forcetypeassert

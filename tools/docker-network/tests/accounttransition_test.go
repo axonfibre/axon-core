@@ -12,10 +12,10 @@ import (
 )
 
 // Test_AccountTransitions follows the account state transition flow described in:
-// 1. Create account1.
-// 2. Create account2.
-// 3. account1 requests faucet funds then allots 1000 mana to account2.
-// 4. account2 requests faucet funds then creates native tokens.
+// 1. Create account-1.
+// 2. Create account-2.
+// 3. account-1 requests faucet funds then allots 1000 mana to account-2.
+// 4. account-2 requests faucet funds then creates native tokens.
 func Test_AccountTransitions(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
@@ -33,16 +33,16 @@ func Test_AccountTransitions(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	// create account1
-	fmt.Println("Creating account1")
-	wallet1, _ := d.CreateAccountFromFaucet()
+	// create account-1
+	fmt.Println("Creating account-1")
+	wallet1, _ := d.CreateAccountFromFaucet("account-1")
 
-	// create account2
-	fmt.Println("Creating account2")
-	wallet2, _ := d.CreateAccountFromFaucet()
+	// create account-2
+	fmt.Println("Creating account-2")
+	wallet2, _ := d.CreateAccountFromFaucet("account-2")
 
-	// allot 1000 mana from account1 to account2
-	fmt.Println("Allotting mana from account1 to account2")
+	// allot 1000 mana from account-1 to account-2
+	fmt.Println("Allotting mana from account-1 to account-2")
 	d.RequestFaucetFundsAndAllotManaTo(wallet1, wallet2.BlockIssuer.AccountData, 1000)
 
 	// create native token

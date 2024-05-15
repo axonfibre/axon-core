@@ -48,32 +48,32 @@ func Test_AccountStateTransition(t *testing.T) {
 		ts.AssertTransactionsInCacheAccepted(wallet.Transactions("TX1"), true, node1, node2)
 	}
 
-	// create the account1 from TX1:0 with wallet "first"
+	// create the account-1 from TX1:0 with wallet "account-1"
 	// generated (block1, TX2)
-	ts.AddWallet("first", node1, iotago.EmptyAccountID)
+	ts.AddWallet("account-1", node1, iotago.EmptyAccountID)
 	createFullAccount(ts)
 
-	// create the account2, from implicit to full account from TX1:1 with wallet "second"
+	// create the account-2, from implicit to full account from TX1:1 with wallet "account-2"
 	// generated (block2, TX3), (block3, TX4)
-	ts.AddWallet("second", node1, iotago.EmptyAccountID)
+	ts.AddWallet("account-2", node1, iotago.EmptyAccountID)
 	account2ID := createImplicitToFullAccount(ts)
 
-	// send funds to account2, with TX1:2
+	// send funds to account-2, with TX1:2
 	// generated (block4, TX5)
 	sendFunds(ts)
 
-	// allot 1000 mana to account2 with TX1:3
+	// allot 1000 mana to account-2 with TX1:3
 	// generated (block5, TX6)
 	allotManaTo(ts, account2ID)
 
-	// create native token from "TX5:0" and account2 (TX4:0)
+	// create native token from "TX5:0" and account-2 (TX4:0)
 	// generated (block6, TX7)
 	createNativetoken(ts)
 }
 
 func createFullAccount(ts *testsuite.TestSuite) iotago.AccountID {
 	node1 := ts.Node("node1")
-	newUserWallet := ts.Wallet("first")
+	newUserWallet := ts.Wallet("account-1")
 
 	// CREATE NEW ACCOUNT WITH BLOCK ISSUER FROM BASIC UTXO
 	newAccountBlockIssuerKey := tpkg.RandBlockIssuerKey()
@@ -125,7 +125,7 @@ func createFullAccount(ts *testsuite.TestSuite) iotago.AccountID {
 
 func createImplicitToFullAccount(ts *testsuite.TestSuite) iotago.AccountID {
 	node1 := ts.Node("node1")
-	newUserWallet := ts.Wallet("second")
+	newUserWallet := ts.Wallet("account-2")
 
 	// CREATE IMPLICIT ACCOUNT FROM GENESIS BASIC UTXO, SENT TO A NEW USER WALLET.
 	// a default wallet, already registered in the ledger, will issue the transaction and block.
@@ -198,7 +198,7 @@ func sendFunds(ts *testsuite.TestSuite) {
 	node1 := ts.Node("node1")
 	node2 := ts.Node("node2")
 	wallet := ts.DefaultWallet()
-	secondWallet := ts.Wallet("second")
+	secondWallet := ts.Wallet("account-2")
 
 	// send funds from defaultWallet to secondWallet
 	tx := wallet.SendFundsToWallet("TX5", secondWallet, "TX1:2")
@@ -246,7 +246,7 @@ func allotManaTo(ts *testsuite.TestSuite, to iotago.AccountID) {
 
 // createNativetoken creates a native token from the given input and account.
 func createNativetoken(ts *testsuite.TestSuite) {
-	wallet := ts.Wallet("second")
+	wallet := ts.Wallet("account-2")
 	node1 := ts.Node("node1")
 	node2 := ts.Node("node2")
 

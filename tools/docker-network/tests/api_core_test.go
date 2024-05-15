@@ -206,7 +206,7 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 
 	for i := 0; i < totalAssetsNum; i++ {
 		// account
-		wallet, account := d.CreateAccountFromFaucet()
+		wallet, account := d.CreateAccountFromFaucet(fmt.Sprintf("account-%d", i))
 		assets.setupAssetsForSlot(account.OutputID.Slot())
 		assets[account.OutputID.Slot()].accountAddress = account.Address
 

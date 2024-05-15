@@ -40,8 +40,8 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	ctx := context.Background()
 	clt := d.DefaultWallet().Client
 
-	createAccountAndDelegateTo := func(receiver *dockertestframework.Node) (*mock.Wallet, *mock.AccountData, *mock.OutputData) {
-		delegatorWallet, accountData := d.CreateAccountFromFaucet()
+	createAccountAndDelegateTo := func(receiver *dockertestframework.Node, name string) (*mock.Wallet, *mock.AccountData, *mock.OutputData) {
+		delegatorWallet, accountData := d.CreateAccountFromFaucet(name)
 		clt := delegatorWallet.Client
 
 		// delegate funds to receiver
@@ -56,8 +56,8 @@ func Test_SyncFromSnapshot(t *testing.T) {
 		return delegatorWallet, accountData, delegationOutputData
 	}
 
-	v1DelegatorWallet, v1DelegatorAccountData, v1DelegationOutputData := createAccountAndDelegateTo(d.Node("V1"))
-	v2DelegatorWallet, v2DelegatorAccountData, v2DelegationOutputData := createAccountAndDelegateTo(d.Node("V2"))
+	v1DelegatorWallet, v1DelegatorAccountData, v1DelegationOutputData := createAccountAndDelegateTo(d.Node("V1"), "account-1")
+	v2DelegatorWallet, v2DelegatorAccountData, v2DelegationOutputData := createAccountAndDelegateTo(d.Node("V2"), "account-2")
 
 	//nolint:forcetypeassert
 	currentEpoch := clt.CommittedAPI().TimeProvider().CurrentEpoch()
@@ -117,7 +117,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	// create V3 delegator, the committee should change to V1, V3, V4
-	v3DelegatorWallet, v3DelegatorAccountData, v3DelegationOutputData := createAccountAndDelegateTo(d.Node("V3"))
+	v3DelegatorWallet, v3DelegatorAccountData, v3DelegationOutputData := createAccountAndDelegateTo(d.Node("V3"), "account-3")
 	currentEpoch = clt.CommittedAPI().TimeProvider().CurrentEpoch()
 	expectedEpoch = v3DelegationOutputData.Output.(*iotago.DelegationOutput).StartEpoch + 1
 	for range expectedEpoch - currentEpoch {

@@ -54,7 +54,7 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	// create two implicit accounts for "good" and "lazy" validator
 	validatorCount := 2
-	implicitAccounts := d.CreateImplicitAccounts(ctx, validatorCount)
+	implicitAccounts := d.CreateImplicitAccounts(ctx, validatorCount, "goodValidator", "lazyValidator")
 
 	blockIssuance, err := clt.BlockIssuance(ctx)
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func Test_DelegatorRewards(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	ctx := context.Background()
-	delegatorWallet, _ := d.CreateAccountFromFaucet()
+	delegatorWallet, _ := d.CreateAccountFromFaucet("account-1")
 	clt := delegatorWallet.Client
 
 	// delegate funds to V2
@@ -230,7 +230,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	ctx := context.Background()
-	delegatorWallet, _ := d.CreateAccountFromFaucet()
+	delegatorWallet, _ := d.CreateAccountFromFaucet("account-1")
 	clt := delegatorWallet.Client
 
 	{

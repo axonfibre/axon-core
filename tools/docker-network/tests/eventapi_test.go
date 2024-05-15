@@ -125,7 +125,7 @@ func test_BasicTaggedDataBlocks(t *testing.T, e *dockertestframework.EventAPIDoc
 	defer eventClt.Close()
 
 	// create an account to issue blocks
-	wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet()
+	wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet("account-basic-tagged-data")
 
 	// prepare data blocks to send
 	expectedBlocks := make(map[string]*iotago.Block)
@@ -177,7 +177,7 @@ func test_DelegationTransactionBlocks(t *testing.T, e *dockertestframework.Event
 	defer eventClt.Close()
 
 	// create an account to issue blocks
-	wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet()
+	wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet("account-delegation")
 	fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, wallet, iotago.AddressEd25519)
 
 	// prepare data blocks to send
@@ -243,7 +243,7 @@ func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	// implicit account transition
 	{
 		// create an implicit account by requesting faucet funds
-		implicitAccount := e.DockerTestFramework().CreateImplicitAccount(ctx)
+		implicitAccount := e.DockerTestFramework().CreateImplicitAccount(ctx, "account-tx-blocks")
 
 		// prepare account transition block
 		accountData, _, blk := e.DockerTestFramework().TransitionImplicitAccountToAccountOutputBlock(implicitAccount, implicitAccount.Wallet().GetNewBlockIssuanceResponse())
@@ -308,7 +308,7 @@ func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	defer eventClt.Close()
 
 	{
-		wallet, account := e.DockerTestFramework().CreateAccountFromFaucet()
+		wallet, account := e.DockerTestFramework().CreateAccountFromFaucet("account-foundry")
 		fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, wallet, iotago.AddressEd25519)
 
 		// prepare foundry output block
@@ -373,7 +373,7 @@ func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDock
 	defer eventClt.Close()
 
 	{
-		wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet()
+		wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet("account-nft")
 		fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, wallet, iotago.AddressEd25519)
 
 		// prepare NFT output block
@@ -436,7 +436,7 @@ func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.Event
 	defer eventClt.Close()
 
 	{
-		wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet()
+		wallet, _ := e.DockerTestFramework().CreateAccountFromFaucet("account-block-metadata")
 
 		assertions := []func(){
 			func() { e.AssertBlockMetadataStateAcceptedBlocks(ctx, eventClt) },

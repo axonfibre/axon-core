@@ -74,8 +74,8 @@ func (i *ImplicitAccount) OutputData() *mock.OutputData {
 }
 
 // CreateImplicitAccount requests faucet funds and creates an implicit account. It already wait until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context) *ImplicitAccount {
-	wallet := mock.NewWallet(d.Testing, "", d.defaultWallet.Client, &DockerWalletClock{client: d.defaultWallet.Client})
+func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context, name string) *ImplicitAccount {
+	wallet := mock.NewWallet(d.Testing, name, d.defaultWallet.Client, &DockerWalletClock{client: d.defaultWallet.Client})
 	outputData := d.RequestFaucetFunds(ctx, wallet, iotago.AddressImplicitAccountCreation)
 
 	accountID := iotago.AccountIDFromOutputID(outputData.ID)
@@ -99,7 +99,7 @@ func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context) *Implic
 	}
 }
 
-func (d *DockerTestFramework) CreateImplicitAccounts(ctx context.Context, count int) []*ImplicitAccount {
+func (d *DockerTestFramework) CreateImplicitAccounts(ctx context.Context, count int, names ...string) []*ImplicitAccount {
 	var wg sync.WaitGroup
 
 	implicitAccounts := make([]*ImplicitAccount, count)
@@ -112,7 +112,11 @@ func (d *DockerTestFramework) CreateImplicitAccounts(ctx context.Context, count 
 			defer wg.Done()
 
 			// create implicit accounts
-			implicitAccounts[nr] = d.CreateImplicitAccount(ctx)
+			name := fmt.Sprintf("account-%d", nr)
+			if len(names) > nr {
+				name = names[nr]
+			}
+			implicitAccounts[nr] = d.CreateImplicitAccount(ctx, name)
 		}(i)
 	}
 
@@ -171,10 +175,10 @@ func (d *DockerTestFramework) CreateAccountFromImplicitAccount(implicitAccount *
 
 // CreateAccountFromFaucet creates a new account by requesting faucet funds to an implicit account address and then transitioning the new output to a full account output.
 // It already waits until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateAccountFromFaucet() (*mock.Wallet, *mock.AccountData) {
+func (d *DockerTestFramework) CreateAccountFromFaucet(name string) (*mock.Wallet, *mock.AccountData) {
 	ctx := context.TODO()
 
-	implicitAccount := d.CreateImplicitAccount(ctx)
+	implicitAccount := d.CreateImplicitAccount(ctx, name)
 
 	accountData, signedTx, block := d.TransitionImplicitAccountToAccountOutputBlock(implicitAccount, d.defaultWallet.GetNewBlockIssuanceResponse())
 
