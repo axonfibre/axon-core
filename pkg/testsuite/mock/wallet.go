@@ -78,6 +78,11 @@ func (a *AccountWithWallet) Account() *AccountData {
 	return a.account
 }
 
+func (a *AccountWithWallet) UpdateAccount(updatedAccount *AccountData) {
+	a.account = updatedAccount
+	a.wallet.SetBlockIssuer(updatedAccount)
+}
+
 func (a *AccountWithWallet) Wallet() *Wallet {
 	return a.wallet
 }
