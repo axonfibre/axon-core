@@ -242,10 +242,20 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 		assets[delegationOutputData.ID.CreationSlot()].delegationOutputs[delegationOutputData.ID] = delegationOutputData.Output.(*iotago.DelegationOutput)
 
 		latestSlot = lo.Max[iotago.SlotIndex](latestSlot, blockSlot, valueBlockSlot, delegationOutputData.ID.CreationSlot(), secondAttachment.ID().Slot())
-
-		fmt.Printf("Assets for slot %d\n: dataBlock: %s block: %s\ntx: %s\nbasic output: %s, faucet output: %s\n delegation output: %s\n",
-			valueBlockSlot, block.MustID().String(), valueBlock.MustID().String(), signedTx.MustID().String(),
-			basicOutputID.String(), faucetOutput.ID.String(), delegationOutputData.ID.String())
+		fmt.Printf(`Assets for slot %d:
+    dataBlock ID:          %s
+    txblock ID:            %s
+    signedTx ID:           %s
+    basic output ID:       %s
+    faucet output ID:      %s
+    delegation output ID:  %s`,
+			valueBlockSlot,
+			block.MustID().String(),
+			valueBlock.MustID().String(),
+			signedTx.MustID().String(),
+			basicOutputID.String(),
+			faucetOutput.ID.String(),
+			delegationOutputData.ID.String())
 	}
 
 	return assets, latestSlot
