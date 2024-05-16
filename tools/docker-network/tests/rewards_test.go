@@ -61,12 +61,11 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
 
-	// we want to start staking as soon as possible, but we also add another epoch as a buffer in case we miss the staking start epoch
-	// to do the candidacy announcement because of the time it takes to create the account.
+	// we can't set the staking start epoch too much in the future, because it is bound to the latest commitment slot plus MaxCommittableAge
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// we want to claim the rewards as soon as possible
-	stakingEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod() + 1
+	stakingEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
 
 	// create accounts with staking feature for the validators
 	var wg sync.WaitGroup
@@ -92,13 +91,30 @@ func Test_ValidatorRewards(t *testing.T) {
 	goodValidatorInitialMana := goodValidator.Account().Output.StoredMana()
 	lazyValidatorInitialMana := lazyValidator.Account().Output.StoredMana()
 
+	annoucementStartEpoch := stakingStartEpoch
+
+	// check if we missed to announce the candidacy during the staking start epoch because it takes time to create the account.
+	latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
+	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+	if annoucementStartEpoch < currentEpoch {
+		annoucementStartEpoch = currentEpoch
+	}
+
+	maxRegistrationSlot := getMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
+
+	// the candidacy announcement needs to be done before the nearing threshold of the epoch
+	// and we shouldn't start trying in the last possible slot, otherwise the tests might be wonky
+	if latestAcceptedBlockSlot >= maxRegistrationSlot {
+		// we are already too late, we can't issue candidacy payloads anymore, so lets start with the next epoch
+		annoucementStartEpoch++
+	}
+
 	// issue candidacy payloads for the validators in the background
 	for _, validator := range validators {
 		issueCandidacyAnnouncementsInBackground(ctx,
 			d,
 			validator.Wallet(),
-			// we start with the next epoch in case the stakingStartEpoch is already at EpochNearingThreshold
-			stakingStartEpoch+1,
+			annoucementStartEpoch,
 			// we don't need to issue candidacy payloads for the last epoch
 			stakingEndEpoch-1)
 	}
@@ -106,7 +122,7 @@ func Test_ValidatorRewards(t *testing.T) {
 	// make sure the account is in the committee, so it can issue validation blocks
 	goodValidatorAddrBech32 := goodValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 	lazyValidatorAddrBech32 := lazyValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
-	d.AssertCommittee(stakingStartEpoch+2, append(d.AccountsFromNodes(d.Nodes("V1", "V3", "V2", "V4")...), goodValidatorAddrBech32, lazyValidatorAddrBech32))
+	d.AssertCommittee(annoucementStartEpoch+1, append(d.AccountsFromNodes(d.Nodes("V1", "V3", "V2", "V4")...), goodValidatorAddrBech32, lazyValidatorAddrBech32))
 
 	// create a new wait group for the next step
 	wg = sync.WaitGroup{}
@@ -286,13 +302,18 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	}
 }
 
+func getMaxRegistrationSlot(committedAPI iotago.API, epoch iotago.EpochIndex) iotago.SlotIndex {
+	epochEndSlot := committedAPI.TimeProvider().EpochEnd(epoch)
+	return epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold()
+}
+
 // issue candidacy announcements for the account in the background, one per epoch
-func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wallet *mock.Wallet, epochStart iotago.EpochIndex, epochEnd iotago.EpochIndex) {
+func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wallet *mock.Wallet, startEpoch iotago.EpochIndex, endEpoch iotago.EpochIndex) {
 	go func() {
 		fmt.Println("Issuing candidacy announcements for account", wallet.BlockIssuer.AccountData.ID, "in the background...")
 		defer fmt.Println("Issuing candidacy announcements for account", wallet.BlockIssuer.AccountData.ID, "in the background... done!")
 
-		for epoch := epochStart; epoch <= epochEnd; epoch++ {
+		for epoch := startEpoch; epoch <= endEpoch; epoch++ {
 			if ctx.Err() != nil {
 				// context is canceled
 				return
@@ -315,8 +336,7 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 			require.Equal(d.Testing, epoch, currentEpoch, "epoch mismatch")
 
 			// the candidacy announcement needs to be done before the nearing threshold
-			epochEndSlot := committedAPI.TimeProvider().EpochEnd(epoch)
-			maxRegistrationSlot := epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold() - 1
+			maxRegistrationSlot := getMaxRegistrationSlot(committedAPI, epoch)
 
 			candidacyBlockID := d.IssueCandidacyPayloadFromAccount(ctx, wallet)
 			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the empoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
@@ -325,7 +345,7 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 }
 
 // issue validation blocks for the account in the background, blocksPerSlot per slot with a cooldown between the blocks
-func issueValidationBlocksInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wg *sync.WaitGroup, wallet *mock.Wallet, startSlot, endSlot iotago.SlotIndex, blocksPerSlot int) {
+func issueValidationBlocksInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wg *sync.WaitGroup, wallet *mock.Wallet, startSlot iotago.SlotIndex, endSlot iotago.SlotIndex, blocksPerSlot int) {
 	wg.Add(1)
 
 	go func() {
