@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,16 +72,7 @@ func (d *DockerTestFramework) AssertCommittee(expectedEpoch iotago.EpochIndex, e
 
 	sort.Strings(expectedCommitteeMember)
 
-	status := d.NodeStatus("V1")
-	testAPI := d.defaultWallet.Client.CommittedAPI()
-	expectedSlotStart := testAPI.TimeProvider().EpochStart(expectedEpoch)
-
-	if status.LatestAcceptedBlockSlot < expectedSlotStart {
-		slotToWait := expectedSlotStart - status.LatestAcceptedBlockSlot
-		secToWait := time.Duration(slotToWait) * time.Duration(testAPI.ProtocolParameters().SlotDurationInSeconds()) * time.Second
-		fmt.Println("Wait for ", secToWait, "until expected epoch: ", expectedEpoch)
-		time.Sleep(secToWait)
-	}
+	d.AwaitLatestAcceptedBlockSlot(d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochStart(expectedEpoch), true)
 
 	d.Eventually(func() error {
 		for _, node := range d.Nodes() {

@@ -199,12 +199,7 @@ func Test_DelegatorRewards(t *testing.T) {
 	// wait until next epoch so the rewards can be claimed
 	//nolint:forcetypeassert
 	expectedSlot := clt.CommittedAPI().TimeProvider().EpochStart(delegationOutputData.Output.(*iotago.DelegationOutput).StartEpoch + 2)
-	if currentSlot := clt.CommittedAPI().TimeProvider().CurrentSlot(); currentSlot < expectedSlot {
-		slotToWait := expectedSlot - currentSlot
-		secToWait := time.Duration(slotToWait) * time.Duration(clt.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
-		fmt.Println("Wait for ", secToWait, "until expected slot: ", expectedSlot)
-		time.Sleep(secToWait)
-	}
+	d.AwaitLatestAcceptedBlockSlot(expectedSlot, true)
 
 	// claim rewards that put to an basic output
 	rewardsOutputID := d.ClaimRewardsForDelegator(ctx, delegatorWallet, delegationOutputData)
@@ -274,12 +269,8 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 
 		// wait until next epoch to destroy the delegation
 		expectedSlot := clt.CommittedAPI().TimeProvider().EpochStart(delegationEndEpoch)
-		if currentSlot := delegatorWallet.CurrentSlot(); currentSlot < expectedSlot {
-			slotToWait := expectedSlot - currentSlot
-			secToWait := time.Duration(slotToWait) * time.Duration(clt.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
-			fmt.Println("Wait for ", secToWait, "until expected slot: ", expectedSlot)
-			time.Sleep(secToWait)
-		}
+		d.AwaitLatestAcceptedBlockSlot(expectedSlot, true)
+
 		fmt.Println("Claim rewards for delegator")
 		d.ClaimRewardsForDelegator(ctx, delegatorWallet, delegationOutputData)
 	}
