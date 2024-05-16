@@ -338,7 +338,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 	maxRegistrationSlot = dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementEpoch)
 
 	// now wait until the start of the announcement epoch
-	d.AwaitLatestAcceptedBlockSlot(clt.CommittedAPI().TimeProvider().EpochStart(annoucementEpoch))
+	d.AwaitLatestAcceptedBlockSlot(clt.CommittedAPI().TimeProvider().EpochStart(annoucementEpoch), true)
 
 	// issue candidacy payload for each account
 	wg = sync.WaitGroup{}
@@ -387,8 +387,7 @@ func Test_CoreAPI_ValidRequests(t *testing.T) {
 
 	assetsPerSlot, lastSlot := prepareAssets(d, 5)
 
-	fmt.Println("Await finalisation of slot", lastSlot)
-	d.AwaitFinalizedSlot(lastSlot)
+	d.AwaitFinalizedSlot(lastSlot, true)
 
 	tests := []struct {
 		name     string
