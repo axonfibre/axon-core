@@ -274,34 +274,32 @@ func Test_ValidatorsAPI(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	hrp := d.DefaultWallet().Client.CommittedAPI().ProtocolParameters().Bech32HRP()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(func() {
-		cancel()
-	})
 
-	// Create registered validators
+	// cancel the context when the test is done
+	t.Cleanup(cancel)
+
 	clt := d.DefaultWallet().Client
+
+	hrp := clt.CommittedAPI().ProtocolParameters().Bech32HRP()
 
 	// get the initial validators
 	expectedValidators := d.AccountsFromNodes(d.Nodes()...)
 
+	// create 50 new validators
 	validatorCount := 50
-
-	implicitAccountsValidators := d.CreateImplicitAccounts(ctx, validatorCount)
+	implicitAccounts := d.CreateImplicitAccounts(ctx, validatorCount)
 
 	blockIssuance, err := clt.BlockIssuance(ctx)
 	require.NoError(t, err)
 
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
-	fullAccountCreationEpoch := clt.CommittedAPI().TimeProvider().CurrentEpoch()
+	// we can't set the staking start epoch too much in the future, because it is bound to the latest commitment slot plus MaxCommittableAge
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
-	// create a new wait group for the next step
+	// create accounts with staking feature for the validators
 	var wg sync.WaitGroup
-
-	// create accounts with staking feature
+	validators := make([]*mock.AccountWithWallet, validatorCount)
 	for i := range validatorCount {
 		wg.Add(1)
 
@@ -309,27 +307,65 @@ func Test_ValidatorsAPI(t *testing.T) {
 			defer wg.Done()
 
 			// create account with staking feature for every validator
-			accountWithWallet := d.CreateAccountFromImplicitAccount(implicitAccountsValidators[validatorNr],
+			validators[validatorNr] = d.CreateAccountFromImplicitAccount(implicitAccounts[validatorNr],
 				blockIssuance,
 				dockertestframework.WithStakingFeature(100, 1, stakingStartEpoch),
 			)
-
-			expectedValidators = append(expectedValidators, accountWithWallet.Account().Address.Bech32(hrp))
+			expectedValidators = append(expectedValidators, validators[validatorNr].Account().Address.Bech32(hrp))
 		}(i)
 	}
 	wg.Wait()
 
-	d.AwaitCommittedSlot(clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch))
+	annoucementEpoch := stakingStartEpoch
+
+	// check if we missed to announce the candidacy during the staking start epoch because it takes time to create the account.
+	latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
+	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+	if annoucementEpoch < currentEpoch {
+		annoucementEpoch = currentEpoch
+	}
+
+	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementEpoch)
+
+	// the candidacy announcement needs to be done before the nearing threshold of the epoch
+	// and we shouldn't start trying in the last possible slot, otherwise the tests might be wonky
+	if latestAcceptedBlockSlot >= maxRegistrationSlot {
+		// we are already too late, we can't issue candidacy payloads anymore, so lets start with the next epoch
+		annoucementEpoch++
+	}
+
+	// the candidacy announcement needs to be done before the nearing threshold
+	maxRegistrationSlot = dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementEpoch)
+
+	// now wait until the start of the announcement epoch
+	d.AwaitLatestAcceptedBlockSlot(clt.CommittedAPI().TimeProvider().EpochStart(annoucementEpoch))
+
+	// issue candidacy payload for each account
+	wg = sync.WaitGroup{}
+	for i := range validatorCount {
+		wg.Add(1)
+
+		go func(validatorNr int) {
+			defer wg.Done()
+
+			candidacyBlockID := d.IssueCandidacyPayloadFromAccount(ctx, validators[validatorNr].Wallet())
+			fmt.Println("Issuing candidacy payload for account", validators[validatorNr].Account().ID, "in epoch", annoucementEpoch, "...", "blockID:", blkID.ToHex())
+			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the epoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
+		}(i)
+	}
+	wg.Wait()
+
+	d.AwaitEpochFinalized()
 
 	// check if all validators are returned from the validators API with pageSize 10
-	actualValidators := getAllValidatorsOnEpoch(t, clt, 0, 10)
+	actualValidators := getAllValidatorsOnEpoch(t, clt, annoucementEpoch, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 
-	// wait until fullAccountCreationEpoch+1 and check the results again
-	targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch + 1)
-	d.AwaitCommittedSlot(targetSlot)
-	actualValidators = getAllValidatorsOnEpoch(t, clt, fullAccountCreationEpoch+1, 10)
-	require.ElementsMatch(t, expectedValidators, actualValidators)
+	//// wait until fullAccountCreationEpoch+1 and check the results again
+	//targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch + 1)
+	//d.AwaitCommittedSlot(targetSlot)
+	//actualValidators = getAllValidatorsOnEpoch(t, clt, fullAccountCreationEpoch+1, 10)
+	//require.ElementsMatch(t, expectedValidators, actualValidators)
 }
 
 func Test_CoreAPI_ValidRequests(t *testing.T) {

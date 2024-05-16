@@ -100,7 +100,7 @@ func Test_ValidatorRewards(t *testing.T) {
 		annoucementStartEpoch = currentEpoch
 	}
 
-	maxRegistrationSlot := getMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
+	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
 
 	// the candidacy announcement needs to be done before the nearing threshold of the epoch
 	// and we shouldn't start trying in the last possible slot, otherwise the tests might be wonky
@@ -302,11 +302,6 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	}
 }
 
-func getMaxRegistrationSlot(committedAPI iotago.API, epoch iotago.EpochIndex) iotago.SlotIndex {
-	epochEndSlot := committedAPI.TimeProvider().EpochEnd(epoch)
-	return epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold()
-}
-
 // issue candidacy announcements for the account in the background, one per epoch
 func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestframework.DockerTestFramework, wallet *mock.Wallet, startEpoch iotago.EpochIndex, endEpoch iotago.EpochIndex) {
 	go func() {
@@ -336,10 +331,10 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 			require.Equal(d.Testing, epoch, currentEpoch, "epoch mismatch")
 
 			// the candidacy announcement needs to be done before the nearing threshold
-			maxRegistrationSlot := getMaxRegistrationSlot(committedAPI, epoch)
+			maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(committedAPI, epoch)
 
 			candidacyBlockID := d.IssueCandidacyPayloadFromAccount(ctx, wallet)
-			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the empoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
+			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the epoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
 		}
 	}()
 }
