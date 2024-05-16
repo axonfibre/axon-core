@@ -41,11 +41,11 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	clt := d.DefaultWallet().Client
 
 	createAccountAndDelegateTo := func(receiver *dockertestframework.Node, name string) (*mock.Wallet, *mock.AccountData, *mock.OutputData) {
-		delegatorWallet, accountData := d.CreateAccountFromFaucet(name)
-		clt := delegatorWallet.Client
+		delegatorAccount := d.CreateAccountFromFaucet(name)
+		clt := delegatorAccount.Wallet().Client
 
 		// delegate funds to receiver
-		delegationOutputData := d.DelegateToValidator(delegatorWallet, receiver.AccountAddress(t))
+		delegationOutputData := d.DelegateToValidator(delegatorAccount.Wallet(), receiver.AccountAddress(t))
 		d.AwaitCommittedSlot(delegationOutputData.ID.CreationSlot(), true)
 
 		// check if receiver received the delegator stake
@@ -53,7 +53,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, resp.PoolStake, resp.ValidatorStake)
 
-		return delegatorWallet, accountData, delegationOutputData
+		return delegatorAccount.Wallet(), delegatorAccount.Account(), delegationOutputData
 	}
 
 	v1DelegatorWallet, v1DelegatorAccountData, v1DelegationOutputData := createAccountAndDelegateTo(d.Node("V1"), "account-1")

@@ -32,7 +32,8 @@ func Test_MempoolInvalidSignatures(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	wallet, _ := d.CreateAccountFromFaucet("account-1")
+	account := d.CreateAccountFromFaucet("account-1")
+	wallet := account.Wallet()
 
 	ctx := context.Background()
 	fundsOutputData := d.RequestFaucetFunds(ctx, wallet, iotago.AddressEd25519)

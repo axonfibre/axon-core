@@ -175,22 +175,31 @@ func (d *DockerTestFramework) CreateAccountFromImplicitAccount(implicitAccount *
 
 // CreateAccountFromFaucet creates a new account by requesting faucet funds to an implicit account address and then transitioning the new output to a full account output.
 // It already waits until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateAccountFromFaucet(name string) (*mock.Wallet, *mock.AccountData) {
-	ctx := context.TODO()
+func (d *DockerTestFramework) CreateAccountFromFaucet(name string) *mock.AccountWithWallet {
+	return d.CreateAccountFromImplicitAccount(d.CreateImplicitAccount(context.TODO(), name), d.defaultWallet.GetNewBlockIssuanceResponse())
+}
 
-	implicitAccount := d.CreateImplicitAccount(ctx, name)
+func (d *DockerTestFramework) CreateAccountsFromFaucet(ctx context.Context, count int, names ...string) []*mock.AccountWithWallet {
+	implicitAccounts := d.CreateImplicitAccounts(ctx, count, names...)
 
-	accountData, signedTx, block := d.TransitionImplicitAccountToAccountOutputBlock(implicitAccount, d.defaultWallet.GetNewBlockIssuanceResponse())
+	blockIssuance := d.defaultWallet.GetNewBlockIssuanceResponse()
 
-	d.SubmitBlock(ctx, block)
-	d.CheckAccountStatus(ctx, block.MustID(), signedTx.Transaction.MustID(), accountData.OutputID, accountData.Address, true)
+	// transition all implicit accounts in parallel
+	var wg sync.WaitGroup
+	accounts := make([]*mock.AccountWithWallet, count)
+	for i := range count {
+		wg.Add(1)
 
-	// update the wallet with the new account data
-	implicitAccount.Wallet().SetBlockIssuer(accountData)
+		go func(nr int) {
+			defer wg.Done()
 
-	fmt.Printf("Account created, Bech addr: %s\n", accountData.Address.Bech32(implicitAccount.Wallet().Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+			accounts[nr] = d.CreateAccountFromImplicitAccount(implicitAccounts[nr], blockIssuance)
+		}(i)
+	}
+	// wait until all accounts are created
+	wg.Wait()
 
-	return implicitAccount.Wallet(), implicitAccount.Wallet().Account(accountData.ID)
+	return accounts
 }
 
 // CreateNativeToken request faucet funds then use it to create native token for the account, and returns the updated Account.

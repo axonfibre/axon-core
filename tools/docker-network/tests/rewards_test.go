@@ -184,7 +184,10 @@ func Test_DelegatorRewards(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	ctx := context.Background()
-	delegatorWallet, _ := d.CreateAccountFromFaucet("account-1")
+
+	account := d.CreateAccountFromFaucet("account-1")
+	delegatorWallet := account.Wallet()
+
 	clt := delegatorWallet.Client
 
 	// delegate funds to V2
@@ -241,7 +244,10 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	ctx := context.Background()
-	delegatorWallet, _ := d.CreateAccountFromFaucet("account-1")
+
+	account := d.CreateAccountFromFaucet("account-1")
+	delegatorWallet := account.Wallet()
+
 	clt := delegatorWallet.Client
 
 	{

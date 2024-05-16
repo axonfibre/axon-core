@@ -204,9 +204,13 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 
 	latestSlot := iotago.SlotIndex(0)
 
+	// create accounts
+	accounts := d.CreateAccountsFromFaucet(ctx, totalAssetsNum)
+
 	for i := 0; i < totalAssetsNum; i++ {
 		// account
-		wallet, account := d.CreateAccountFromFaucet(fmt.Sprintf("account-%d", i))
+		wallet, account := accounts[i].Wallet(), accounts[i].Account()
+
 		assets.setupAssetsForSlot(account.OutputID.Slot())
 		assets[account.OutputID.Slot()].accountAddress = account.Address
 

@@ -3,6 +3,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -33,19 +34,21 @@ func Test_AccountTransitions(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	// create account-1
-	fmt.Println("Creating account-1")
-	wallet1, _ := d.CreateAccountFromFaucet("account-1")
+	ctx, cancel := context.WithCancel(context.Background())
 
-	// create account-2
-	fmt.Println("Creating account-2")
-	wallet2, _ := d.CreateAccountFromFaucet("account-2")
+	// cancel the context when the test is done
+	t.Cleanup(cancel)
+
+	// create account-1
+	accounts := d.CreateAccountsFromFaucet(ctx, 2, "account-1", "account-2")
+	account1 := accounts[0]
+	account2 := accounts[1]
 
 	// allot 1000 mana from account-1 to account-2
 	fmt.Println("Allotting mana from account-1 to account-2")
-	d.RequestFaucetFundsAndAllotManaTo(wallet1, wallet2.BlockIssuer.AccountData, 1000)
+	d.RequestFaucetFundsAndAllotManaTo(account1.Wallet(), account2.Account(), 1000)
 
 	// create native token
 	fmt.Println("Creating native token")
-	d.CreateNativeToken(wallet1, 5_000_000, 10_000_000_000)
+	d.CreateNativeToken(account1.Wallet(), 5_000_000, 10_000_000_000)
 }
