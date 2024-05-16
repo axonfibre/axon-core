@@ -308,6 +308,12 @@ func issueCandidacyAnnouncementsInBackground(ctx context.Context, d *dockertestf
 			fmt.Println("Issuing candidacy payload for account", wallet.BlockIssuer.AccountData.ID, "in epoch", epoch, "...")
 			committedAPI := d.DefaultWallet().Client.CommittedAPI()
 
+			// check if we are still in the epoch
+			latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
+			currentEpoch := committedAPI.TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+
+			require.Equal(d.Testing, epoch, currentEpoch, "epoch mismatch")
+
 			// the candidacy announcement needs to be done before the nearing threshold
 			epochEndSlot := committedAPI.TimeProvider().EpochEnd(epoch)
 			maxRegistrationSlot := epochEndSlot - committedAPI.ProtocolParameters().EpochNearingThreshold() - 1
@@ -341,6 +347,13 @@ func issueValidationBlocksInBackground(ctx context.Context, d *dockertestframewo
 			if ctx.Err() != nil {
 				// context is canceled
 				return
+			}
+
+			// check if we are still in the slot
+			currentCommittedSlot := d.NodeStatus("V1").LatestCommitmentID.Slot()
+			if currentCommittedSlot >= slot {
+				// slot is already committed, no need to issue validation blocks
+				continue
 			}
 
 			ts := time.Now()
