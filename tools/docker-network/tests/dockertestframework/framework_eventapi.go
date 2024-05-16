@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/blocks"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/api"
@@ -61,7 +62,7 @@ func (e *EventAPIDockerTestFramework) ConnectEventAPIClient(ctx context.Context)
 }
 
 // SubmitDataBlockStream submits a stream of data blocks to the network for the given duration.
-func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet, duration time.Duration, tick time.Duration, countPerTick int, blockSubmittedCallback func()) {
+func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet, duration time.Duration, tick time.Duration, countPerTick int, blockSubmittedCallback func(*blocks.Block)) {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 
@@ -72,10 +73,10 @@ func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet,
 		select {
 		case <-ticker.C:
 			for range countPerTick {
-				_, err := wallet.CreateAndSubmitBasicBlock(context.TODO(), "tagged_data_block", mock.WithPayload(tpkg.RandTaggedData([]byte("tag"))))
+				block, err := wallet.CreateAndSubmitBasicBlock(context.TODO(), "tagged_data_block", mock.WithPayload(tpkg.RandTaggedData([]byte("tag"))))
 				require.NoError(e.Testing, err)
 
-				blockSubmittedCallback()
+				blockSubmittedCallback(block)
 			}
 		case <-timer.C:
 			return

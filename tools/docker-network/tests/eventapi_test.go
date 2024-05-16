@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/blocks"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -501,13 +502,19 @@ func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.Event
 
 		// issue blocks
 		fmt.Println("Submitting blocks for 30s...")
-		e.SubmitDataBlockStream(account.Wallet(), 30*time.Second, 1*time.Second, 10, func() {
+		var maxSlot iotago.SlotIndex
+		e.SubmitDataBlockStream(account.Wallet(), 30*time.Second, 1*time.Second, 10, func(block *blocks.Block) {
 			sentCounter.Add(1)
+			if block.ID().Slot() > maxSlot {
+				maxSlot = block.ID().Slot()
+			}
 		})
 
+		// wait until all blocks are committed
+		e.DockerTestFramework().AwaitCommittedSlot(maxSlot, true)
+
 		// wait until all topics receives all expected objects
-		fmt.Println("Waiting for receiving additional blocks for 5s...")
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		// cancel listening
 		cancel()
