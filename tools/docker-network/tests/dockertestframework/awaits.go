@@ -72,7 +72,7 @@ func (d *DockerTestFramework) AwaitTransactionFailure(ctx context.Context, txID 
 func (d *DockerTestFramework) awaitSlot(targetSlot iotago.SlotIndex, slotName string, getCurrentSlotFunc func() iotago.SlotIndex, offsetDeadline ...time.Duration) {
 	currentSlot := getCurrentSlotFunc()
 
-	if targetSlot <= currentSlot {
+	if currentSlot >= targetSlot {
 		return
 	}
 

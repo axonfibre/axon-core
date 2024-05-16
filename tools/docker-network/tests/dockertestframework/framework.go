@@ -107,6 +107,9 @@ func (d *DockerTestFramework) DockerComposeUp(detach ...bool) error {
 	}
 
 	cmd.Env = os.Environ()
+
+	// we want to retry the candidacy much quicker in the tests, because our epochs are super short
+	cmd.Env = append(cmd.Env, "CANDIDACY_RETRY_INTERVAL=1s")
 	for _, node := range d.Nodes() {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ISSUE_CANDIDACY_PAYLOAD_%s=%t", node.Name, node.IssueCandidacyPayload))
 		if node.DatabasePath != "" {
