@@ -283,8 +283,13 @@ func Test_ValidatorsAPI(t *testing.T) {
 
 	hrp := clt.CommittedAPI().ProtocolParameters().Bech32HRP()
 
-	// get the initial validators
-	expectedValidators := d.AccountsFromNodes(d.Nodes()...)
+	// get the initial validators (those are the nodes added via AddValidatorNode)
+	// they should be returned by the validators API
+	initialValidators := d.AccountsFromNodes(d.Nodes()...)
+
+	// copy the initial validators, so we can append the new validators
+	expectedValidators := make([]string, len(initialValidators))
+	copy(expectedValidators, initialValidators)
 
 	// create 50 new validators
 	validatorCount := 50
@@ -349,23 +354,29 @@ func Test_ValidatorsAPI(t *testing.T) {
 			defer wg.Done()
 
 			candidacyBlockID := d.IssueCandidacyPayloadFromAccount(ctx, validators[validatorNr].Wallet())
-			fmt.Println("Issuing candidacy payload for account", validators[validatorNr].Account().ID, "in epoch", annoucementEpoch, "...", "blockID:", blkID.ToHex())
+			fmt.Println("Issuing candidacy payload for account", validators[validatorNr].Account().ID, "in epoch", annoucementEpoch, "...", "blockID:", candidacyBlockID.ToHex())
 			require.LessOrEqualf(d.Testing, candidacyBlockID.Slot(), maxRegistrationSlot, "candidacy announcement block slot is greater than max registration slot for the epoch (%d>%d)", candidacyBlockID.Slot(), maxRegistrationSlot)
 		}(i)
 	}
 	wg.Wait()
 
+	// wait until the end of the announcement epoch
 	d.AwaitEpochFinalized()
 
 	// check if all validators are returned from the validators API with pageSize 10
 	actualValidators := getAllValidatorsOnEpoch(t, clt, annoucementEpoch, 10)
 	require.ElementsMatch(t, expectedValidators, actualValidators)
 
-	//// wait until fullAccountCreationEpoch+1 and check the results again
-	//targetSlot := clt.CommittedAPI().TimeProvider().EpochEnd(fullAccountCreationEpoch + 1)
-	//d.AwaitCommittedSlot(targetSlot)
-	//actualValidators = getAllValidatorsOnEpoch(t, clt, fullAccountCreationEpoch+1, 10)
-	//require.ElementsMatch(t, expectedValidators, actualValidators)
+	// wait until the end of the next epoch, the newly added validators should be offline again
+	// because they haven't issued candidacy annoucement for the next epoch
+	d.AwaitEpochFinalized()
+
+	actualValidators = getAllValidatorsOnEpoch(t, clt, annoucementEpoch+1, 10)
+	require.ElementsMatch(t, initialValidators, actualValidators)
+
+	// the initital validators should be returned for epoch 0
+	actualValidators = getAllValidatorsOnEpoch(t, clt, 0, 10)
+	require.ElementsMatch(t, initialValidators, actualValidators)
 }
 
 func Test_CoreAPI_ValidRequests(t *testing.T) {
