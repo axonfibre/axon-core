@@ -10,21 +10,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/api"
 )
-
-var eventAPITests = map[string]func(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework){
-	"Test_Commitments":                 test_Commitments,
-	"Test_ValidationBlocks":            test_ValidationBlocks,
-	"Test_BasicTaggedDataBlocks":       test_BasicTaggedDataBlocks,
-	"Test_DelegationTransactionBlocks": test_DelegationTransactionBlocks,
-	"Test_AccountTransactionBlocks":    test_AccountTransactionBlocks,
-	"Test_FoundryTransactionBlocks":    test_FoundryTransactionBlocks,
-	"Test_NFTTransactionBlocks":        test_NFTTransactionBlocks,
-	"Test_BlockMetadataMatchedCoreAPI": test_BlockMetadataMatchedCoreAPI,
-}
 
 func Test_MQTTTopics(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
@@ -45,14 +35,66 @@ func Test_MQTTTopics(t *testing.T) {
 
 	e := dockertestframework.NewEventAPIDockerTestFramework(t, d)
 
-	for name, test := range eventAPITests {
-		t.Run(name, func(t *testing.T) {
-			test(t, e)
+	// prepare accounts to speed up tests
+	accounts := d.CreateAccountsFromFaucet(context.Background(), 2, "account-1", "account-2")
+
+	type test struct {
+		name     string
+		testFunc func(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet)
+		account  *mock.AccountWithWallet
+	}
+
+	tests := []*test{
+		{
+			name:     "Test_Commitments",
+			testFunc: test_Commitments,
+			account:  nil,
+		},
+		{
+			name:     "Test_ValidationBlocks",
+			testFunc: test_ValidationBlocks,
+			account:  nil,
+		},
+		{
+			name:     "Test_BasicTaggedDataBlocks",
+			testFunc: test_BasicTaggedDataBlocks,
+			account:  accounts[0],
+		},
+		{
+			name:     "Test_DelegationTransactionBlocks",
+			testFunc: test_DelegationTransactionBlocks,
+			account:  accounts[1],
+		},
+		{
+			name:     "Test_AccountTransactionBlocks",
+			testFunc: test_AccountTransactionBlocks,
+			account:  nil,
+		},
+		{
+			name:     "Test_FoundryTransactionBlocks",
+			testFunc: test_FoundryTransactionBlocks,
+			account:  nil,
+		},
+		{
+			name:     "Test_NFTTransactionBlocks",
+			testFunc: test_NFTTransactionBlocks,
+			account:  nil,
+		},
+		{
+			name:     "Test_BlockMetadataMatchedCoreAPI",
+			testFunc: test_BlockMetadataMatchedCoreAPI,
+			account:  nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.testFunc(t, e, test.account)
 		})
 	}
 }
 
-func test_Commitments(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_Commitments(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,7 +130,7 @@ func test_Commitments(t *testing.T, e *dockertestframework.EventAPIDockerTestFra
 	require.NoError(t, err)
 }
 
-func test_ValidationBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_ValidationBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,14 +160,11 @@ func test_ValidationBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTe
 	require.NoError(t, err)
 }
 
-func test_BasicTaggedDataBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_BasicTaggedDataBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
 	defer eventClt.Close()
-
-	// create an account to issue blocks
-	account := e.DockerTestFramework().CreateAccountFromFaucet("account-basic-tagged-data")
 
 	// prepare data blocks to send
 	expectedBlocks := make(map[string]*iotago.Block)
@@ -170,14 +209,13 @@ func test_BasicTaggedDataBlocks(t *testing.T, e *dockertestframework.EventAPIDoc
 	require.NoError(t, err)
 }
 
-func test_DelegationTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_DelegationTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
 	defer eventClt.Close()
 
 	// create an account to issue blocks
-	account := e.DockerTestFramework().CreateAccountFromFaucet("account-delegation")
 	fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, account.Wallet(), iotago.AddressEd25519)
 
 	// prepare data blocks to send
@@ -232,7 +270,7 @@ func test_DelegationTransactionBlocks(t *testing.T, e *dockertestframework.Event
 	require.NoError(t, err)
 }
 
-func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -301,7 +339,7 @@ func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	}
 }
 
-func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
@@ -366,7 +404,7 @@ func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	}
 }
 
-func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
@@ -429,7 +467,7 @@ func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDock
 	}
 }
 
-func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework) {
+func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
