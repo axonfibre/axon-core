@@ -273,7 +273,7 @@ func prepareAssets(d *dockertestframework.DockerTestFramework, totalAssetsNum in
 // 5. Wait until next epoch then check again if the results remain.
 func Test_ValidatorsAPI(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -395,7 +395,7 @@ func Test_ValidatorsAPI(t *testing.T) {
 
 func Test_CoreAPI_ValidRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -744,7 +744,7 @@ func Test_CoreAPI_ValidRequests(t *testing.T) {
 
 func Test_CoreAPI_BadRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 

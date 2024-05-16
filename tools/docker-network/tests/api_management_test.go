@@ -30,7 +30,7 @@ func getContextWithTimeout(duration time.Duration) context.Context {
 // 6. List all peers of node 1 again and check if the peer was added.
 func Test_ManagementAPI_Peers_ValidRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -117,7 +117,7 @@ func Test_ManagementAPI_Peers_ValidRequests(t *testing.T) {
 
 func Test_ManagementAPI_Peers_BadRequests(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -177,7 +177,7 @@ func Test_ManagementAPI_Peers_BadRequests(t *testing.T) {
 
 func Test_ManagementAPI_Pruning(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -252,7 +252,7 @@ func Test_ManagementAPI_Pruning(t *testing.T) {
 
 func Test_ManagementAPI_Snapshots(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 

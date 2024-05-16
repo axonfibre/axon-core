@@ -19,7 +19,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithTargetCommitteeSize(3),
 			)...,
 		),

@@ -35,7 +35,7 @@ func calcNextEpoch(nodeStatus *api.InfoResNodeStatus, timeProvider *iotago.TimeP
 // 5. Check that committee of size 4 is selected in next epoch.
 func Test_SmallerCommittee(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -78,7 +78,7 @@ func Test_SmallerCommittee(t *testing.T) {
 // 5. Check that committee of size 3 (V1, V2, V4) is selected in next epoch and finalization occurs again from that epoch.
 func Test_ReuseDueToNoFinalization(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -147,7 +147,7 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 // 5. Check finalization advances and the committee is changed to 3 committee members.
 func Test_NoCandidacyPayload(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
@@ -195,7 +195,7 @@ func Test_Staking(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithTargetCommitteeSize(3),
 			)...,
 		),
@@ -243,7 +243,7 @@ func Test_Delegation(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithTargetCommitteeSize(3),
 			)...,
 		),

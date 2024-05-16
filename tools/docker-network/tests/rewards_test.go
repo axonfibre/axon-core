@@ -25,7 +25,7 @@ func Test_ValidatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithStakingOptions(2, 10, 10),
 				iotago.WithRewardsOptions(8, 11, 2, 384),
 				iotago.WithTargetCommitteeSize(32),
@@ -163,7 +163,7 @@ func Test_DelegatorRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithStakingOptions(3, 10, 10),
 				iotago.WithRewardsOptions(8, 11, 2, 384),
 				iotago.WithTargetCommitteeSize(32),
@@ -223,7 +223,7 @@ func Test_DelayedClaimingRewards(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(
 			append(
-				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions,
+				dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc(),
 				iotago.WithStakingOptions(3, 10, 10),
 				iotago.WithRewardsOptions(8, 11, 2, 384),
 				iotago.WithTargetCommitteeSize(32),

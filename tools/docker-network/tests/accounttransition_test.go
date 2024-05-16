@@ -19,7 +19,7 @@ import (
 // 4. account-2 requests faucet funds then creates native tokens.
 func Test_AccountTransitions(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
-		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptions...),
+		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
 	)
 	defer d.Stop()
 
