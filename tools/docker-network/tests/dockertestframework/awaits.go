@@ -127,18 +127,21 @@ func (d *DockerTestFramework) AwaitEpochFinalized() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	info, err := d.defaultWallet.Client.Info(ctx)
+	clt := d.defaultWallet.Client
+
+	info, err := clt.Info(ctx)
 	require.NoError(d.Testing, err)
 
-	currentEpoch := d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochFromSlot(info.Status.LatestFinalizedSlot)
+	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(info.Status.LatestFinalizedSlot)
 
 	// await the start slot of the next epoch
-	d.AwaitFinalizedSlot(d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochStart(currentEpoch+1), true)
+	d.AwaitFinalizedSlot(clt.CommittedAPI().TimeProvider().EpochStart(currentEpoch+1), true)
 }
 
 func (d *DockerTestFramework) AwaitAddressUnspentOutputAccepted(ctx context.Context, wallet *mock.Wallet, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
 	indexerClt, err := wallet.Client.Indexer(ctx)
 	require.NoError(d.Testing, err)
+
 	addrBech := addr.Bech32(d.defaultWallet.Client.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for t := time.Now(); time.Since(t) < d.optsWaitFor; time.Sleep(d.optsTick) {

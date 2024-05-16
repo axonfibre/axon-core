@@ -87,8 +87,6 @@ func (d *DockerTestFramework) CreateNFTBlockFromInput(wallet *mock.Wallet, input
 }
 
 func (d *DockerTestFramework) SubmitBlock(ctx context.Context, blk *iotago.Block) {
-	clt := d.defaultWallet.Client
-
-	_, err := clt.SubmitBlock(ctx, blk)
+	_, err := d.defaultWallet.Client.SubmitBlock(ctx, blk)
 	require.NoError(d.Testing, err)
 }

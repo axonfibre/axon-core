@@ -48,7 +48,7 @@ func (d *DockerTestFramework) CheckAccountStatus(ctx context.Context, blkID iota
 
 	// Check the indexer
 	if len(checkIndexer) > 0 && checkIndexer[0] {
-		indexerClt, err := d.defaultWallet.Client.Indexer(ctx)
+		indexerClt, err := clt.Indexer(ctx)
 		require.NoError(d.Testing, err)
 
 		_, _, _, err = indexerClt.Account(ctx, accountAddress)
@@ -75,7 +75,9 @@ func (i *ImplicitAccount) OutputData() *mock.OutputData {
 
 // CreateImplicitAccount requests faucet funds and creates an implicit account. It already wait until the transaction is committed and the created account is useable.
 func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context, name string) *ImplicitAccount {
-	wallet := mock.NewWallet(d.Testing, name, d.defaultWallet.Client, &DockerWalletClock{client: d.defaultWallet.Client})
+	clt := d.defaultWallet.Client
+
+	wallet := mock.NewWallet(d.Testing, name, clt, &DockerWalletClock{client: clt})
 	outputData := d.RequestFaucetFunds(ctx, wallet, iotago.AddressImplicitAccountCreation)
 
 	accountID := iotago.AccountIDFromOutputID(outputData.ID)

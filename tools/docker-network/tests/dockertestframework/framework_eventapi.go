@@ -26,12 +26,6 @@ func WithEventAPIWaitFor(waitFor time.Duration) options.Option[EventAPIDockerTes
 	}
 }
 
-func WithEventAPITick(tick time.Duration) options.Option[EventAPIDockerTestFramework] {
-	return func(d *EventAPIDockerTestFramework) {
-		d.optsTick = tick
-	}
-}
-
 type EventAPIDockerTestFramework struct {
 	Testing *testing.T
 
@@ -41,7 +35,6 @@ type EventAPIDockerTestFramework struct {
 	finishChan chan struct{}
 
 	optsWaitFor time.Duration
-	optsTick    time.Duration
 }
 
 func NewEventAPIDockerTestFramework(t *testing.T, dockerFramework *DockerTestFramework) *EventAPIDockerTestFramework {
@@ -51,7 +44,6 @@ func NewEventAPIDockerTestFramework(t *testing.T, dockerFramework *DockerTestFra
 		DefaultClient:   dockerFramework.defaultWallet.Client,
 		finishChan:      make(chan struct{}),
 		optsWaitFor:     3 * time.Minute,
-		optsTick:        5 * time.Second,
 	}
 }
 
@@ -69,18 +61,21 @@ func (e *EventAPIDockerTestFramework) ConnectEventAPIClient(ctx context.Context)
 }
 
 // SubmitDataBlockStream submits a stream of data blocks to the network for the given duration.
-func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet, duration time.Duration) {
+func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet, duration time.Duration, tick time.Duration, countPerTick int, blockSubmittedCallback func()) {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 
-	ticker := time.NewTicker(e.optsTick)
+	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			for i := 0; i < 10; i++ {
-				e.dockerFramework.defaultWallet.CreateAndSubmitBasicBlock(context.TODO(), "tagged_data_block", mock.WithPayload(tpkg.RandTaggedData([]byte("tag"))))
+			for range countPerTick {
+				_, err := wallet.CreateAndSubmitBasicBlock(context.TODO(), "tagged_data_block", mock.WithPayload(tpkg.RandTaggedData([]byte("tag"))))
+				require.NoError(e.Testing, err)
+
+				blockSubmittedCallback()
 			}
 		case <-timer.C:
 			return
@@ -88,7 +83,7 @@ func (e *EventAPIDockerTestFramework) SubmitDataBlockStream(wallet *mock.Wallet,
 	}
 }
 
-func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateAcceptedBlocks(ctx context.Context, eventClt *nodeclient.EventAPIClient) {
+func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateAcceptedBlocks(ctx context.Context, eventClt *nodeclient.EventAPIClient, receivedCallback func()) {
 	acceptedChan, subInfo := eventClt.BlockMetadataAcceptedBlocks()
 	require.Nil(e.Testing, subInfo.Error())
 
@@ -103,11 +98,16 @@ func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateAcceptedBlocks(ctx
 			case blk := <-acceptedChan:
 				require.Equal(e.Testing, api.BlockStateAccepted, blk.BlockState, "Block %s is pending in BlockMetadataAccepted topic", blk.BlockID.ToHex())
 
-				resp, err := eventClt.Client.BlockMetadataByBlockID(ctx, blk.BlockID)
+				resp, err := eventClt.Client.BlockWithMetadataByBlockID(ctx, blk.BlockID)
 				require.NoError(e.Testing, err)
-				// accepted, confirmed are accepted
-				require.NotEqualf(e.Testing, api.BlockStatePending, resp.BlockState, "Block %s is pending in BlockMetadataAccepted topic", blk.BlockID.ToHex())
 
+				// accepted, confirmed are accepted
+				require.NotEqualf(e.Testing, api.BlockStatePending, resp.Metadata.BlockState, "Block %s is pending in BlockMetadataAccepted topic", blk.BlockID.ToHex())
+
+				if resp.Block.Body.Type() == iotago.BlockBodyTypeBasic && resp.Block.Body.(*iotago.BasicBlockBody).Payload.PayloadType() == iotago.PayloadTaggedData {
+					// only count the basic blocks with tagged data, ignore the validation and candidate blocks
+					receivedCallback()
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -115,7 +115,7 @@ func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateAcceptedBlocks(ctx
 	}()
 }
 
-func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateConfirmedBlocks(ctx context.Context, eventClt *nodeclient.EventAPIClient) {
+func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateConfirmedBlocks(ctx context.Context, eventClt *nodeclient.EventAPIClient, receivedCallback func()) {
 	acceptedChan, subInfo := eventClt.BlockMetadataConfirmedBlocks()
 	require.Nil(e.Testing, subInfo.Error())
 
@@ -130,11 +130,15 @@ func (e *EventAPIDockerTestFramework) AssertBlockMetadataStateConfirmedBlocks(ct
 			case blk := <-acceptedChan:
 				require.Equal(e.Testing, api.BlockStateConfirmed, blk.BlockState, "Block %s is pending in BlockMetadataConfirmed topic", blk.BlockID.ToHex())
 
-				resp, err := eventClt.Client.BlockMetadataByBlockID(ctx, blk.BlockID)
+				resp, err := eventClt.Client.BlockWithMetadataByBlockID(ctx, blk.BlockID)
 				require.NoError(e.Testing, err)
-				require.NotEqualf(e.Testing, api.BlockStatePending, resp.BlockState, "Block %s is pending in BlockMetadataConfirmed endpoint", blk.BlockID.ToHex())
-				require.NotEqualf(e.Testing, api.BlockStateAccepted, resp.BlockState, "Block %s is accepted in BlockMetadataConfirmed endpoint", blk.BlockID.ToHex())
+				require.NotEqualf(e.Testing, api.BlockStatePending, resp.Metadata.BlockState, "Block %s is pending in BlockMetadataConfirmed endpoint", blk.BlockID.ToHex())
+				require.NotEqualf(e.Testing, api.BlockStateAccepted, resp.Metadata.BlockState, "Block %s is accepted in BlockMetadataConfirmed endpoint", blk.BlockID.ToHex())
 
+				if resp.Block.Body.Type() == iotago.BlockBodyTypeBasic && resp.Block.Body.(*iotago.BasicBlockBody).Payload.PayloadType() == iotago.PayloadTaggedData {
+					// only count the basic blocks with tagged data, ignore the validation and candidate blocks
+					receivedCallback()
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -611,7 +615,7 @@ func (e *EventAPIDockerTestFramework) assertOutputMetadataTopics(ctx context.Con
 	}
 }
 
-func (e *EventAPIDockerTestFramework) AwaitEventAPITopics(t *testing.T, cancleFunc context.CancelFunc, numOfTopics int) error {
+func (e *EventAPIDockerTestFramework) AwaitEventAPITopics(t *testing.T, cancelFunc context.CancelFunc, numOfTopics int) error {
 	counter := 0
 	timer := time.NewTimer(e.optsWaitFor)
 	defer timer.Stop()
@@ -619,7 +623,7 @@ func (e *EventAPIDockerTestFramework) AwaitEventAPITopics(t *testing.T, cancleFu
 	for {
 		select {
 		case <-timer.C:
-			cancleFunc()
+			cancelFunc()
 			return ierrors.New("Timeout, did not receive signals from all topics")
 		case <-e.finishChan:
 			counter++

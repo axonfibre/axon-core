@@ -5,6 +5,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ func Test_MQTTTopics(t *testing.T) {
 	e := dockertestframework.NewEventAPIDockerTestFramework(t, d)
 
 	// prepare accounts to speed up tests
-	accounts := d.CreateAccountsFromFaucet(context.Background(), 2, "account-1", "account-2")
+	accounts := d.CreateAccountsFromFaucet(context.Background(), 5)
 
 	type test struct {
 		name     string
@@ -73,17 +74,17 @@ func Test_MQTTTopics(t *testing.T) {
 		{
 			name:     "Test_FoundryTransactionBlocks",
 			testFunc: test_FoundryTransactionBlocks,
-			account:  nil,
+			account:  accounts[2],
 		},
 		{
 			name:     "Test_NFTTransactionBlocks",
 			testFunc: test_NFTTransactionBlocks,
-			account:  nil,
+			account:  accounts[3],
 		},
 		{
 			name:     "Test_BlockMetadataMatchedCoreAPI",
 			testFunc: test_BlockMetadataMatchedCoreAPI,
-			account:  nil,
+			account:  accounts[4],
 		},
 	}
 
@@ -339,14 +340,13 @@ func test_AccountTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	}
 }
 
-func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
+func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
 	defer eventClt.Close()
 
 	{
-		account := e.DockerTestFramework().CreateAccountFromFaucet("account-foundry")
 		fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, account.Wallet(), iotago.AddressEd25519)
 
 		// prepare foundry output block
@@ -404,14 +404,13 @@ func test_FoundryTransactionBlocks(t *testing.T, e *dockertestframework.EventAPI
 	}
 }
 
-func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
+func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
 	defer eventClt.Close()
 
 	{
-		account := e.DockerTestFramework().CreateAccountFromFaucet("account-nft")
 		fundsOutputData := e.DockerTestFramework().RequestFaucetFunds(ctx, account.Wallet(), iotago.AddressEd25519)
 
 		// prepare NFT output block
@@ -467,18 +466,28 @@ func test_NFTTransactionBlocks(t *testing.T, e *dockertestframework.EventAPIDock
 	}
 }
 
-func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, _ *mock.AccountWithWallet) {
+func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.EventAPIDockerTestFramework, account *mock.AccountWithWallet) {
 	// get event API client ready
 	ctx, cancel := context.WithCancel(context.Background())
 	eventClt := e.ConnectEventAPIClient(ctx)
 	defer eventClt.Close()
 
-	{
-		account := e.DockerTestFramework().CreateAccountFromFaucet("account-block-metadata")
+	receivedAcceptedCounter := atomic.Int64{}
+	receivedConfirmedCounter := atomic.Int64{}
+	sentCounter := atomic.Int64{}
 
+	{
 		assertions := []func(){
-			func() { e.AssertBlockMetadataStateAcceptedBlocks(ctx, eventClt) },
-			func() { e.AssertBlockMetadataStateConfirmedBlocks(ctx, eventClt) },
+			func() {
+				e.AssertBlockMetadataStateAcceptedBlocks(ctx, eventClt, func() {
+					receivedAcceptedCounter.Add(1)
+				})
+			},
+			func() {
+				e.AssertBlockMetadataStateConfirmedBlocks(ctx, eventClt, func() {
+					receivedConfirmedCounter.Add(1)
+				})
+			},
 		}
 
 		totalTopics := len(assertions)
@@ -491,8 +500,20 @@ func test_BlockMetadataMatchedCoreAPI(t *testing.T, e *dockertestframework.Event
 		require.NoError(t, err)
 
 		// issue blocks
-		e.SubmitDataBlockStream(account.Wallet(), 5*time.Minute)
+		fmt.Println("Submitting blocks for 30s...")
+		e.SubmitDataBlockStream(account.Wallet(), 30*time.Second, 1*time.Second, 10, func() {
+			sentCounter.Add(1)
+		})
 
+		// wait until all topics receives all expected objects
+		fmt.Println("Waiting for receiving additional blocks for 5s...")
+		time.Sleep(5 * time.Second)
+
+		// cancel listening
 		cancel()
+
+		// check if we received all expected objects
+		require.Equal(t, sentCounter.Load(), receivedAcceptedCounter.Load(), "receivedAcceptedCounter != sentCounter")
+		require.Equal(t, sentCounter.Load(), receivedConfirmedCounter.Load(), "receivedConfirmedCounter != sentCounter")
 	}
 }
