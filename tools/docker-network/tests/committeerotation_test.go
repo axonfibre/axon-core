@@ -125,8 +125,20 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 
 	d.WaitUntilNodesHealthy()
 
-	nextEpoch = calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), nextEpoch+1)
-	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes("V1", "V2", "V4")...))
+	// check if V2 missed to announce the candidacy during inx-validator restart.
+	latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
+	annoucementStartEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
+	// the candidacy announcement needs to be done before the nearing threshold of the epoch
+	if latestAcceptedBlockSlot >= maxRegistrationSlot {
+		// it's too late for validator to issue candidacy payloads anymore, so we wait until the next epoch
+		annoucementStartEpoch++
+	}
+
+	// we check if the committee is updated in the next epoch, after candidacy announcement have been processed
+	checkCommitteeEpoch := annoucementStartEpoch + 1
+
+	d.AssertCommittee(checkCommitteeEpoch, d.AccountsFromNodes(d.Nodes("V1", "V2", "V4")...))
 
 	// wait finalization to catch up and check if the finalization resumes
 	time.Sleep(5 * time.Second)
