@@ -153,7 +153,9 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 	if err != nil {
 		return ierrors.Wrap(err, "failed to create genesis outputs")
 	}
-	genesisTransactionOutputs = append(genesisTransactionOutputs, genesisOutput)
+	if genesisOutput != nil {
+		genesisTransactionOutputs = append(genesisTransactionOutputs, genesisOutput)
+	}
 
 	accountOutputs, err := createGenesisAccounts(api, opt.Accounts)
 	if err != nil {
