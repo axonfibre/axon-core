@@ -21,7 +21,7 @@ import (
 // Supply for the test with faster slot duration and slots per epoch.
 const SUPPLY = iotago.BaseToken(1_813_620_509_061_365)
 
-func setupValidatorTestsuite(t *testing.T, walletOpts ...options.Option[testsuite.WalletOptions]) *testsuite.TestSuite {
+func setupValidatorTestsuiteWithStake(t *testing.T, validator1Balance iotago.BaseToken, validator2Balance iotago.BaseToken, walletOpts ...options.Option[testsuite.WalletOptions]) *testsuite.TestSuite {
 	var slotDuration uint8 = 5
 	var slotsPerEpochExponent uint8 = 5
 	var validationBlocksPerSlot uint8 = 5
@@ -54,13 +54,13 @@ func setupValidatorTestsuite(t *testing.T, walletOpts ...options.Option[testsuit
 	// Add validator nodes to the network. This will add validator accounts to the snapshot.
 	vnode1 := ts.AddValidatorNode("node1", append(
 		[]options.Option[testsuite.WalletOptions]{
-			testsuite.WithWalletAmount(20_000_000),
+			testsuite.WithWalletAmount(validator1Balance),
 		},
 		walletOpts...,
 	)...)
 	vnode2 := ts.AddValidatorNode("node2", append(
 		[]options.Option[testsuite.WalletOptions]{
-			testsuite.WithWalletAmount(25_000_000),
+			testsuite.WithWalletAmount(validator2Balance),
 		},
 		walletOpts...,
 	)...)
@@ -80,6 +80,10 @@ func setupValidatorTestsuite(t *testing.T, walletOpts ...options.Option[testsuit
 	ts.SetCurrentSlot(ts.API.ProtocolParameters().GenesisSlot() + 1)
 
 	return ts
+}
+
+func setupValidatorTestsuite(t *testing.T, walletOpts ...options.Option[testsuite.WalletOptions]) *testsuite.TestSuite {
+	return setupValidatorTestsuiteWithStake(t, 20_000_000, 25_000_000, walletOpts...)
 }
 
 type EpochPerformanceMap = map[iotago.EpochIndex]uint64
@@ -137,9 +141,14 @@ func Test_Validator_PerfectIssuanceWithNonZeroFixedCost(t *testing.T) {
 }
 
 func Test_Validator_PerfectIssuanceWithHugeStake(t *testing.T) {
-	// This gives both validators the max supply as stake, which is unrealistic,
+	// This gives one validator almost the max supply as stake, which is unrealistic,
 	// but is supposed to test if one validator with a huge stake causes an overflow in the rewards calculation.
-	ts := setupValidatorTestsuite(t, testsuite.WithWalletAmount(SUPPLY))
+	var validator1Balance iotago.BaseToken = 25_000_000
+	var otherAccountBalance iotago.BaseToken = 31_700
+	var genesisOutputBalance iotago.BaseToken = 14_100
+	var validator2Balance iotago.BaseToken = SUPPLY - validator1Balance - otherAccountBalance - genesisOutputBalance
+
+	ts := setupValidatorTestsuiteWithStake(t, iotago.BaseToken(validator1Balance), validator2Balance)
 	defer ts.Shutdown()
 
 	validationBlocksPerSlot := ts.API.ProtocolParameters().ValidationBlocksPerSlot()
