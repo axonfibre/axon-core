@@ -3,6 +3,7 @@ package snapshotcreator
 import (
 	"os"
 
+	"github.com/iotaledger/hive.go/core/safemath"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/log"
@@ -137,8 +138,18 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		return accumulator + details.Amount
 	}, iotago.BaseToken(0))
 
+	supplyMinusAccounts, err := safemath.SafeSub(opt.ProtocolParameters.TokenSupply(), totalAccountAmount)
+	if err != nil {
+		return ierrors.Wrapf(err, "failed to calculate genesis output balance, remaining funds: %d, needed account funds: %d", opt.ProtocolParameters.TokenSupply(), totalAccountAmount)
+	}
+
+	genesisOutputBalance, err := safemath.SafeSub(supplyMinusAccounts, totalBasicOutputAmount)
+	if err != nil {
+		return ierrors.Wrapf(err, "failed to calculate genesis output balance, remaining funds: %d, needed basic output funds: %d", supplyMinusAccounts, totalBasicOutputAmount)
+	}
+
 	var genesisTransactionOutputs iotago.TxEssenceOutputs
-	genesisOutput, err := createGenesisOutput(api, opt.ProtocolParameters.TokenSupply()-totalAccountAmount-totalBasicOutputAmount, iotago.MaxMana/100, opt.GenesisKeyManager)
+	genesisOutput, err := createGenesisOutput(api, genesisOutputBalance, iotago.MaxMana/100, opt.GenesisKeyManager)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to create genesis outputs")
 	}
