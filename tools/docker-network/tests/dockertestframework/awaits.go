@@ -4,6 +4,7 @@ package dockertestframework
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -69,66 +70,78 @@ func (d *DockerTestFramework) AwaitTransactionFailure(ctx context.Context, txID 
 	})
 }
 
-func (d *DockerTestFramework) AwaitCommitment(targetSlot iotago.SlotIndex) {
-	currentCommittedSlot := d.NodeStatus("V1").LatestCommitmentID.Slot()
+func (d *DockerTestFramework) awaitSlot(targetSlot iotago.SlotIndex, slotName string, getCurrentSlotFunc func() iotago.SlotIndex, printWaitMessage bool, offsetDeadline ...time.Duration) {
+	currentSlot := getCurrentSlotFunc()
 
-	// we wait at max "targetSlot - currentCommittedSlot" times * slot duration
+	if currentSlot >= targetSlot {
+		return
+	}
+
+	// we wait at max "targetSlot - currentSlot" times * slot duration
 	deadline := time.Duration(d.defaultWallet.Client.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
-	if currentCommittedSlot < targetSlot {
-		deadline *= time.Duration(targetSlot - currentCommittedSlot)
+	if currentSlot < targetSlot {
+		deadline *= time.Duration(targetSlot - currentSlot)
+	}
+
+	if printWaitMessage {
+		fmt.Println(fmt.Sprintf("Wait for %v until %s slot %d is reached... (current: %d)", deadline.Truncate(time.Millisecond), slotName, targetSlot, currentSlot))
 	}
 
 	// give some extra time for peering etc
-	deadline += 30 * time.Second
+	if len(offsetDeadline) > 0 {
+		deadline += offsetDeadline[0]
+	} else {
+		// add 30 seconds as default
+		deadline += 30 * time.Second
+	}
 
 	d.EventuallyWithDurations(func() error {
-		latestCommittedSlot := d.NodeStatus("V1").LatestCommitmentID.Slot()
-		if targetSlot > latestCommittedSlot {
-			return ierrors.Errorf("committed slot %d is not reached yet, current committed slot %d", targetSlot, latestCommittedSlot)
+		currentSlot := getCurrentSlotFunc()
+		if targetSlot > currentSlot {
+			return ierrors.Errorf("%s slot %d is not reached yet, %s slot %d", slotName, targetSlot, slotName, currentSlot)
 		}
 
 		return nil
 	}, deadline, 1*time.Second)
 }
 
-func (d *DockerTestFramework) AwaitFinalization(targetSlot iotago.SlotIndex) {
-	currentFinalizedSlot := d.NodeStatus("V1").LatestFinalizedSlot
+func (d *DockerTestFramework) AwaitLatestAcceptedBlockSlot(targetSlot iotago.SlotIndex, printWaitMessage bool, offsetDeadline ...time.Duration) {
+	d.awaitSlot(targetSlot, "latest accepted block", func() iotago.SlotIndex {
+		return d.NodeStatus("V1").LatestAcceptedBlockSlot
+	}, printWaitMessage, offsetDeadline...)
+}
 
-	// we wait at max "targetSlot - currentFinalizedSlot" times * slot duration
-	deadline := time.Duration(d.defaultWallet.Client.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
-	if currentFinalizedSlot < targetSlot {
-		deadline *= time.Duration(targetSlot - currentFinalizedSlot)
-	}
+func (d *DockerTestFramework) AwaitCommittedSlot(targetSlot iotago.SlotIndex, printWaitMessage bool, offsetDeadline ...time.Duration) {
+	d.awaitSlot(targetSlot, "committed", func() iotago.SlotIndex {
+		return d.NodeStatus("V1").LatestCommitmentID.Slot()
+	}, printWaitMessage, offsetDeadline...)
+}
 
-	// give some extra time for peering etc
-	deadline += 30 * time.Second
-
-	d.EventuallyWithDurations(func() error {
-		currentFinalisedSlot := d.NodeStatus("V1").LatestFinalizedSlot
-		if targetSlot > currentFinalisedSlot {
-			return ierrors.Errorf("finalized slot %d is not reached yet", targetSlot)
-		}
-
-		return nil
-	}, deadline, 1*time.Second)
+func (d *DockerTestFramework) AwaitFinalizedSlot(targetSlot iotago.SlotIndex, printWaitMessage bool, offsetDeadline ...time.Duration) {
+	d.awaitSlot(targetSlot, "finalized", func() iotago.SlotIndex {
+		return d.NodeStatus("V1").LatestFinalizedSlot
+	}, printWaitMessage, offsetDeadline...)
 }
 
 func (d *DockerTestFramework) AwaitEpochFinalized() {
-	//nolint:lostcancel
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	info, err := d.defaultWallet.Client.Info(ctx)
+	clt := d.defaultWallet.Client
+
+	info, err := clt.Info(ctx)
 	require.NoError(d.Testing, err)
 
-	currentEpoch := d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochFromSlot(info.Status.LatestFinalizedSlot)
+	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(info.Status.LatestFinalizedSlot)
 
 	// await the start slot of the next epoch
-	d.AwaitFinalization(d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochStart(currentEpoch + 1))
+	d.AwaitFinalizedSlot(clt.CommittedAPI().TimeProvider().EpochStart(currentEpoch+1), true)
 }
 
 func (d *DockerTestFramework) AwaitAddressUnspentOutputAccepted(ctx context.Context, wallet *mock.Wallet, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
 	indexerClt, err := wallet.Client.Indexer(ctx)
 	require.NoError(d.Testing, err)
+
 	addrBech := addr.Bech32(d.defaultWallet.Client.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for t := time.Now(); time.Since(t) < d.optsWaitFor; time.Sleep(d.optsTick) {

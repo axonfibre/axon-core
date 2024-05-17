@@ -17,6 +17,30 @@ var DefaultProtocolParametersOptions = []options.Option[iotago.V3ProtocolParamet
 	iotago.WithNetworkOptions(fmt.Sprintf("docker-tests-%d", time.Now().Unix()), iotago.PrefixTestnet),
 }
 
+// ShortSlotsAndEpochsProtocolParametersOptionsFunc sets the protocol parameters to have 5s slots and 40s epochs.
+// It needs to be a function, otherwise the time.Now() would be evaluated at initialization time, and not at the time of the test.
+// This would cause the tests to force commit all slots at the beginning, because the genesis time is far in the past.
+var ShortSlotsAndEpochsProtocolParametersOptionsFunc = func() []options.Option[iotago.V3ProtocolParameters] {
+	return []options.Option[iotago.V3ProtocolParameters]{
+		iotago.WithStorageOptions(100, 1, 10, 100, 100, 100),
+		iotago.WithWorkScoreOptions(500, 110_000, 7_500, 40_000, 90_000, 50_000, 40_000, 70_000, 5_000, 15_000),
+		//iotago.WithTimeProviderOptions(0, time.Now().Unix(), 10, 13),
+		iotago.WithTimeProviderOptions(5, time.Now().Unix(), 3, 3),
+		//iotago.WithLivenessOptions(15, 30, 10, 20, 60),
+		iotago.WithLivenessOptions(3, 3, 2, 4, 5),
+		iotago.WithSupplyOptions(1813620509061365, 63, 1, 17, 32, 21, 70),
+		//iotago.WithCongestionControlOptions(1, 1, 1, 400_000_000, 250_000_000, 50_000_000, 1000, 100),
+		iotago.WithCongestionControlOptions(1, 1, 1, 100_000_000, 75_000_000, 50_000_000, 1000, 100),
+		iotago.WithStakingOptions(10, 10, 10),
+		iotago.WithVersionSignalingOptions(7, 5, 7),
+		//iotago.WithRewardsOptions(8, 11, 2, 384),
+		iotago.WithRewardsOptions(8, 10, 2, 384),
+		//iotago.WithTargetCommitteeSize(32),
+		iotago.WithTargetCommitteeSize(4),
+		iotago.WithChainSwitchingThreshold(3),
+	}
+}
+
 // DefaultAccountOptions are the default snapshot options for the docker network.
 func DefaultAccountOptions(protocolParams *iotago.V3ProtocolParameters) []options.Option[snapshotcreator.Options] {
 	return []options.Option[snapshotcreator.Options]{

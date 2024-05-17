@@ -30,6 +30,8 @@ services:
       --db.path==${DB_PATH_V1:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_V1:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=08735375679f3d8031353e94282ed1d65119e5c288fe56d6639d9184a3f978fee8febfedff11cc376daea0f59c395ae2e9a870a25ac4e36093000fbf4d0e8f18
+      --p2p.peers=/dns/node-2-validator/tcp/15600/p2p/12D3KooWCropDmzpoLy8UrFg59M1oUx7k1UmQmuHrmN5RDgp6pVL,/dns/node-3-validator/tcp/15600/p2p/12D3KooWPr1mW33PGhv3oRbPQQDesN4THBB3WgnYsNzCfnQLr5QR,/dns/node-4-validator/tcp/15600/p2p/12D3KooWRxDSg2H7ThEJyn4HNkL1ixsqm6PgjCtkTG1hm7NpYG4Q,/dns/node-5/tcp/15600/p2p/12D3KooWG9S868XrL1wzeUbMXDtBTAaxwuqktAzUodFFES8uoTGz,/dns/node-6/tcp/15600/p2p/12D3KooWFatFVM1wyGnMUwJrMW7YwD6j32iq5SCA9S7e386biZ73
+      --p2p.peerAliases=node-2-validator,node-3-validator,node-4-validator,node-5,node-6
       --node.alias=node-1-validator
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -62,10 +64,11 @@ services:
       - ./config.json:/app/config.json:ro
     command: >
       ${COMMON_CONFIG}
-      ${AUTOPEERING_CONFIG}
       --db.path==${DB_PATH_V2:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_V2:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=ba771419c52132a0dfb2521ed18667813f398da159010a55a0a482af939affb92d3338789ad4a07a7631b91791deb11f82ed5dc612822f24275e9f7a313b691f
+      --p2p.peers=/dns/node-1-validator/tcp/15600/p2p/12D3KooWRVt4Engu27jHnF2RjfX48EqiAqJbgLfFdHNt3Vn6BtJK,/dns/node-3-validator/tcp/15600/p2p/12D3KooWPr1mW33PGhv3oRbPQQDesN4THBB3WgnYsNzCfnQLr5QR,/dns/node-4-validator/tcp/15600/p2p/12D3KooWRxDSg2H7ThEJyn4HNkL1ixsqm6PgjCtkTG1hm7NpYG4Q,/dns/node-5/tcp/15600/p2p/12D3KooWG9S868XrL1wzeUbMXDtBTAaxwuqktAzUodFFES8uoTGz,/dns/node-6/tcp/15600/p2p/12D3KooWFatFVM1wyGnMUwJrMW7YwD6j32iq5SCA9S7e386biZ73
+      --p2p.peerAliases=node-1-validator,node-3-validator,node-4-validator,node-5,node-6
       --node.alias=node-2-validator
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -96,10 +99,11 @@ services:
       - ./config.json:/app/config.json:ro
     command: >
       ${COMMON_CONFIG}
-      ${AUTOPEERING_CONFIG}
       --db.path==${DB_PATH_V3:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_V3:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=a6261ac049755675ff1437654ca9f83b305055f01ff08c4f039209ef5a4a7d96d06fb61df77a8815209a8f4d204226dee593e50d0ec897ec440a2c1fbde77656
+      --p2p.peers=/dns/node-1-validator/tcp/15600/p2p/12D3KooWRVt4Engu27jHnF2RjfX48EqiAqJbgLfFdHNt3Vn6BtJK,/dns/node-2-validator/tcp/15600/p2p/12D3KooWCropDmzpoLy8UrFg59M1oUx7k1UmQmuHrmN5RDgp6pVL,/dns/node-4-validator/tcp/15600/p2p/12D3KooWRxDSg2H7ThEJyn4HNkL1ixsqm6PgjCtkTG1hm7NpYG4Q,/dns/node-5/tcp/15600/p2p/12D3KooWG9S868XrL1wzeUbMXDtBTAaxwuqktAzUodFFES8uoTGz,/dns/node-6/tcp/15600/p2p/12D3KooWFatFVM1wyGnMUwJrMW7YwD6j32iq5SCA9S7e386biZ73
+      --p2p.peerAliases=node-1-validator,node-2-validator,node-4-validator,node-5,node-6
       --node.alias=node-3-validator
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -130,10 +134,11 @@ services:
       - ./config.json:/app/config.json:ro
     command: >
       ${COMMON_CONFIG}
-      ${AUTOPEERING_CONFIG}
       --db.path==${DB_PATH_V4:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_V4:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=f205f6c4525069f71f9c7e987d72421a16c7900056b494a2b85fdf7942cf906aefbdc580f5d1ce4ae3f86ccfe109c6cd76df9b0e710a437b2aa964358c7b9449
+      --p2p.peers=/dns/node-1-validator/tcp/15600/p2p/12D3KooWRVt4Engu27jHnF2RjfX48EqiAqJbgLfFdHNt3Vn6BtJK,/dns/node-2-validator/tcp/15600/p2p/12D3KooWCropDmzpoLy8UrFg59M1oUx7k1UmQmuHrmN5RDgp6pVL,/dns/node-3-validator/tcp/15600/p2p/12D3KooWPr1mW33PGhv3oRbPQQDesN4THBB3WgnYsNzCfnQLr5QR,/dns/node-5/tcp/15600/p2p/12D3KooWG9S868XrL1wzeUbMXDtBTAaxwuqktAzUodFFES8uoTGz,/dns/node-6/tcp/15600/p2p/12D3KooWFatFVM1wyGnMUwJrMW7YwD6j32iq5SCA9S7e386biZ73
+      --p2p.peerAliases=node-1-validator,node-2-validator,node-3-validator,node-5,node-6
       --node.alias=node-4-validator
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -162,10 +167,11 @@ services:
       - ./config.json:/app/config.json:ro
     command: >
       ${COMMON_CONFIG}
-      ${AUTOPEERING_CONFIG}
       --db.path==${DB_PATH_node5:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_node5:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=03feb3bcd25e57f75697bb329e6e0100680431e4c45c85bc013da2aea9e9d0345e08a0c37407dc62369deebc64cb0fb3ea26127d19d141ee7fb8eaa6b92019d7
+      --p2p.peers=/dns/node-1-validator/tcp/15600/p2p/12D3KooWRVt4Engu27jHnF2RjfX48EqiAqJbgLfFdHNt3Vn6BtJK,/dns/node-2-validator/tcp/15600/p2p/12D3KooWCropDmzpoLy8UrFg59M1oUx7k1UmQmuHrmN5RDgp6pVL,/dns/node-3-validator/tcp/15600/p2p/12D3KooWPr1mW33PGhv3oRbPQQDesN4THBB3WgnYsNzCfnQLr5QR,/dns/node-4-validator/tcp/15600/p2p/12D3KooWRxDSg2H7ThEJyn4HNkL1ixsqm6PgjCtkTG1hm7NpYG4Q,/dns/node-6/tcp/15600/p2p/12D3KooWFatFVM1wyGnMUwJrMW7YwD6j32iq5SCA9S7e386biZ73
+      --p2p.peerAliases=node-1-validator,node-2-validator,node-3-validator,node-4-validator,node-6
       --node.alias=node-5
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -196,10 +202,11 @@ services:
       - ./config.json:/app/config.json:ro
     command: >
       ${COMMON_CONFIG}
-      ${AUTOPEERING_CONFIG}
       --db.path==${DB_PATH_node6:-/app/data/database}
       --protocol.snapshot.path=${SNAPSHOT_PATH_node6:-/app/data/snapshots/snapshot.bin}
       --p2p.identityPrivateKey=7d1491df3ef334dee988d6cdfc4b430b996d520bd63375a01d6754f8cee979b855b200fbea8c936ea1937a27e6ad72a7c9a21c1b17c2bd3c11f1f6994d813446
+      --p2p.peers=/dns/node-1-validator/tcp/15600/p2p/12D3KooWRVt4Engu27jHnF2RjfX48EqiAqJbgLfFdHNt3Vn6BtJK,/dns/node-2-validator/tcp/15600/p2p/12D3KooWCropDmzpoLy8UrFg59M1oUx7k1UmQmuHrmN5RDgp6pVL,/dns/node-3-validator/tcp/15600/p2p/12D3KooWPr1mW33PGhv3oRbPQQDesN4THBB3WgnYsNzCfnQLr5QR,/dns/node-4-validator/tcp/15600/p2p/12D3KooWRxDSg2H7ThEJyn4HNkL1ixsqm6PgjCtkTG1hm7NpYG4Q,/dns/node-5/tcp/15600/p2p/12D3KooWG9S868XrL1wzeUbMXDtBTAaxwuqktAzUodFFES8uoTGz
+      --p2p.peerAliases=node-1-validator,node-2-validator,node-3-validator,node-4-validator,node-5
       --node.alias=node-6
       --inx.enabled=true
       --inx.bindAddress=0.0.0.0:9029
@@ -356,6 +363,7 @@ services:
       --inx.address=node-1-validator:9029
       --validator.ignoreBootstrapped=true
       --validator.accountAddress=rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6
+      --validator.candidacyRetryInterval=${CANDIDACY_RETRY_INTERVAL:-10s}
       --validator.issueCandidacyPayload=${ISSUE_CANDIDACY_PAYLOAD_V1:-true}
     profiles:
       - minimal
@@ -376,6 +384,7 @@ services:
       --logger.level=debug
       --inx.address=node-2-validator:9029
       --validator.accountAddress=rms1pqm4xk8e9ny5w5rxjkvtp249tfhlwvcshyr3pc0665jvp7g3hc875k538hl
+      --validator.candidacyRetryInterval=${CANDIDACY_RETRY_INTERVAL:-10s}
       --validator.issueCandidacyPayload=${ISSUE_CANDIDACY_PAYLOAD_V2:-true}
     profiles:
       - full
@@ -395,6 +404,7 @@ services:
       --logger.level=debug
       --inx.address=node-3-validator:9029
       --validator.accountAddress=rms1pp4wuuz0y42caz48vv876qfpmffswsvg40zz8v79sy8cp0jfxm4kunflcgt
+      --validator.candidacyRetryInterval=${CANDIDACY_RETRY_INTERVAL:-10s}
       --validator.issueCandidacyPayload=${ISSUE_CANDIDACY_PAYLOAD_V3:-true}
     profiles:
       - full
@@ -414,6 +424,7 @@ services:
       --logger.level=debug
       --inx.address=node-4-validator:9029
       --validator.accountAddress=rms1pr8cxs3dzu9xh4cduff4dd4cxdthpjkpwmz2244f75m0urslrsvtsshrrjw
+      --validator.candidacyRetryInterval=${CANDIDACY_RETRY_INTERVAL:-10s}
       --validator.issueCandidacyPayload=${ISSUE_CANDIDACY_PAYLOAD_V4:-true}
     profiles:
       - full

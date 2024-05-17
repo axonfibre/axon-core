@@ -20,7 +20,7 @@ import (
 
 func (d *DockerTestFramework) WaitUntilFaucetHealthy() {
 	fmt.Println("Wait until the faucet is healthy...")
-	defer fmt.Println("Wait until the faucet is healthy......done")
+	defer fmt.Println("Wait until the faucet is healthy... done!")
 
 	d.Eventually(func() error {
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, d.optsFaucetURL+"/health", nil)
@@ -116,7 +116,7 @@ func (d *DockerTestFramework) RequestFaucetFundsAndAllotManaTo(fromWallet *mock.
 	d.AwaitTransactionPayloadAccepted(ctx, signedTx.Transaction.MustID())
 
 	// allotment is updated when the transaction is committed
-	d.AwaitCommitment(block.ID().Slot())
+	d.AwaitCommittedSlot(block.ID().Slot(), false)
 
 	// check if the mana is allotted
 	toCongestionResp, err := clt.Congestion(ctx, to.Address, 0, preAllotmentCommitmentID)

@@ -100,13 +100,16 @@ func NewDockerTestFramework(t *testing.T, opts ...options.Option[DockerTestFrame
 }
 
 func (d *DockerTestFramework) DockerComposeUp(detach ...bool) error {
-	cmd := exec.Command("docker", "compose", "up")
+	cmd := exec.Command("docker", "compose", "--profile", "full", "up")
 
 	if len(detach) > 0 && detach[0] {
-		cmd = exec.Command("docker", "compose", "up", "-d")
+		cmd = exec.Command("docker", "compose", "--profile", "full", "up", "-d")
 	}
 
 	cmd.Env = os.Environ()
+
+	// we want to retry the candidacy much quicker in the tests, because our epochs are super short
+	cmd.Env = append(cmd.Env, "CANDIDACY_RETRY_INTERVAL=1s")
 	for _, node := range d.Nodes() {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("ISSUE_CANDIDACY_PAYLOAD_%s=%t", node.Name, node.IssueCandidacyPayload))
 		if node.DatabasePath != "" {
@@ -131,7 +134,7 @@ func (d *DockerTestFramework) DockerComposeUp(detach ...bool) error {
 
 func (d *DockerTestFramework) Run() error {
 	// first we remove old containers, volumes and orphans
-	_ = exec.Command("docker", "compose", "down", "-v", "--remove-orphans").Run()
+	_ = exec.Command("docker", "compose", "--profile", "full", "down", "-v", "--remove-orphans").Run()
 
 	ch := make(chan error)
 	stopCh := make(chan struct{})
@@ -188,12 +191,12 @@ func (d *DockerTestFramework) Stop() {
 	defer fmt.Println("Stop the network.....done")
 
 	// remove volumes and orphans
-	_ = exec.Command("docker", "compose", "down", "-v", "--remove-orphans").Run()
+	_ = exec.Command("docker", "compose", "--profile", "full", "down", "-v", "--remove-orphans").Run()
 	_ = exec.Command("rm", d.snapshotPath).Run() //nolint:gosec
 }
 
 func (d *DockerTestFramework) StopContainer(containerName ...string) error {
-	fmt.Println("Stop validator", containerName, "......")
+	fmt.Println("Stopping container", containerName, "......")
 
 	args := append([]string{"stop"}, containerName...)
 
@@ -201,7 +204,7 @@ func (d *DockerTestFramework) StopContainer(containerName ...string) error {
 }
 
 func (d *DockerTestFramework) RestartContainer(containerName ...string) error {
-	fmt.Println("Restart validator", containerName, "......")
+	fmt.Println("Restarting container", containerName, "......")
 
 	args := append([]string{"restart"}, containerName...)
 

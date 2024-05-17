@@ -32,7 +32,10 @@ popd
 # If no arguments were passed, run all tests
 if [ $# -eq 0 ]; then
     echo "Running all tests..."
-    go test ./... -tags ${BUILD_TAGS} -v -timeout=${TIMEOUT}
+    # The following command will run all tests in the current directory only, but we
+    # want to do it this way because otherwise the logs are not shown in the console
+    # until all the tests are done.
+    go test -tags ${BUILD_TAGS} -v -timeout=${TIMEOUT}
 else
     # Concatenate all test names with a pipe
     tests=$(printf "|%s" "$@")

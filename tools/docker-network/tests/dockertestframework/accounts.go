@@ -5,6 +5,7 @@ package dockertestframework
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/stretchr/testify/require"
 
@@ -43,11 +44,11 @@ func (d *DockerTestFramework) CheckAccountStatus(ctx context.Context, blkID iota
 	d.AwaitTransactionPayloadAccepted(ctx, txID)
 
 	// wait for the account to be committed
-	d.AwaitCommitment(slot)
+	d.AwaitCommittedSlot(slot, false)
 
 	// Check the indexer
 	if len(checkIndexer) > 0 && checkIndexer[0] {
-		indexerClt, err := d.defaultWallet.Client.Indexer(ctx)
+		indexerClt, err := clt.Indexer(ctx)
 		require.NoError(d.Testing, err)
 
 		_, _, _, err = indexerClt.Account(ctx, accountAddress)
@@ -59,43 +60,88 @@ func (d *DockerTestFramework) CheckAccountStatus(ctx context.Context, blkID iota
 	require.NoError(d.Testing, err)
 }
 
-// CreateImplicitAccount requests faucet funds and creates an implicit account. It already wait until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context) (*mock.Wallet, *mock.OutputData) {
-	newWallet := mock.NewWallet(d.Testing, "", d.defaultWallet.Client, &DockerWalletClock{client: d.defaultWallet.Client})
-	implicitAccountOutputData := d.RequestFaucetFunds(ctx, newWallet, iotago.AddressImplicitAccountCreation)
+type ImplicitAccount struct {
+	wallet     *mock.Wallet
+	outputData *mock.OutputData
+}
 
-	accountID := iotago.AccountIDFromOutputID(implicitAccountOutputData.ID)
+func (i *ImplicitAccount) Wallet() *mock.Wallet {
+	return i.wallet
+}
+
+func (i *ImplicitAccount) OutputData() *mock.OutputData {
+	return i.outputData
+}
+
+// CreateImplicitAccount requests faucet funds and creates an implicit account. It already wait until the transaction is committed and the created account is useable.
+func (d *DockerTestFramework) CreateImplicitAccount(ctx context.Context, name string) *ImplicitAccount {
+	clt := d.defaultWallet.Client
+
+	wallet := mock.NewWallet(d.Testing, name, clt, &DockerWalletClock{client: clt})
+	outputData := d.RequestFaucetFunds(ctx, wallet, iotago.AddressImplicitAccountCreation)
+
+	accountID := iotago.AccountIDFromOutputID(outputData.ID)
 	accountAddress, ok := accountID.ToAddress().(*iotago.AccountAddress)
 	require.True(d.Testing, ok)
 
 	// make sure an implicit account is committed
-	d.CheckAccountStatus(ctx, iotago.EmptyBlockID, implicitAccountOutputData.ID.TransactionID(), implicitAccountOutputData.ID, accountAddress)
+	d.CheckAccountStatus(ctx, iotago.EmptyBlockID, outputData.ID.TransactionID(), outputData.ID, accountAddress)
 
 	// update the wallet with the new account data
-	newWallet.SetBlockIssuer(&mock.AccountData{
+	wallet.SetBlockIssuer(&mock.AccountData{
 		ID:           accountID,
 		Address:      accountAddress,
-		OutputID:     implicitAccountOutputData.ID,
-		AddressIndex: implicitAccountOutputData.AddressIndex,
+		OutputID:     outputData.ID,
+		AddressIndex: outputData.AddressIndex,
 	})
 
-	return newWallet, implicitAccountOutputData
+	return &ImplicitAccount{
+		wallet:     wallet,
+		outputData: outputData,
+	}
+}
+
+func (d *DockerTestFramework) CreateImplicitAccounts(ctx context.Context, count int, names ...string) []*ImplicitAccount {
+	var wg sync.WaitGroup
+
+	implicitAccounts := make([]*ImplicitAccount, count)
+
+	for i := range count {
+		wg.Add(1)
+
+		// first create all implicit accounts in parallel
+		go func(nr int) {
+			defer wg.Done()
+
+			// create implicit accounts
+			name := fmt.Sprintf("account-%d", nr)
+			if len(names) > nr {
+				name = names[nr]
+			}
+			implicitAccounts[nr] = d.CreateImplicitAccount(ctx, name)
+		}(i)
+	}
+
+	// wait until all implicit accounts are created
+	wg.Wait()
+
+	return implicitAccounts
 }
 
 // TransitionImplicitAccountToAccountOutputBlock consumes the given implicit account, then build the account transition block with the given account output options.
-func (d *DockerTestFramework) TransitionImplicitAccountToAccountOutputBlock(accountWallet *mock.Wallet, implicitAccountOutputData *mock.OutputData, blockIssuance *api.IssuanceBlockHeaderResponse, opts ...options.Option[builder.AccountOutputBuilder]) (*mock.AccountData, *iotago.SignedTransaction, *iotago.Block) {
+func (d *DockerTestFramework) TransitionImplicitAccountToAccountOutputBlock(implicitAccount *ImplicitAccount, blockIssuance *api.IssuanceBlockHeaderResponse, opts ...options.Option[builder.AccountOutputBuilder]) (*mock.AccountData, *iotago.SignedTransaction, *iotago.Block) {
 	ctx := context.TODO()
 
-	var implicitBlockIssuerKey iotago.BlockIssuerKey = iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(accountWallet.ImplicitAccountCreationAddress())
+	var implicitBlockIssuerKey iotago.BlockIssuerKey = iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccount.Wallet().ImplicitAccountCreationAddress())
 	opts = append(opts, mock.WithBlockIssuerFeature(
 		iotago.NewBlockIssuerKeys(implicitBlockIssuerKey),
 		iotago.MaxSlotIndex,
 	))
 
-	signedTx := accountWallet.TransitionImplicitAccountToAccountOutputWithBlockIssuance("", []*mock.OutputData{implicitAccountOutputData}, blockIssuance, opts...)
+	signedTx := implicitAccount.Wallet().TransitionImplicitAccountToAccountOutputWithBlockIssuance("", []*mock.OutputData{implicitAccount.OutputData()}, blockIssuance, opts...)
 
 	// The account transition block should be issued by the implicit account block issuer key.
-	block, err := accountWallet.CreateBasicBlock(ctx, "", mock.WithPayload(signedTx))
+	block, err := implicitAccount.Wallet().CreateBasicBlock(ctx, "", mock.WithPayload(signedTx))
 	require.NoError(d.Testing, err)
 	accOutputID := iotago.OutputIDFromTransactionIDAndIndex(signedTx.Transaction.MustID(), 0)
 	accOutput := signedTx.Transaction.Outputs[0].(*iotago.AccountOutput)
@@ -106,47 +152,56 @@ func (d *DockerTestFramework) TransitionImplicitAccountToAccountOutputBlock(acco
 		Address:      accAddress,
 		Output:       accOutput,
 		OutputID:     accOutputID,
-		AddressIndex: implicitAccountOutputData.AddressIndex,
+		AddressIndex: implicitAccount.OutputData().AddressIndex,
 	}
 
 	return accountOutputData, signedTx, block.ProtocolBlock()
 }
 
 // CreateAccountFromImplicitAccount transitions an account from the given implicit one to full one, it already wait until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateAccountFromImplicitAccount(accountWallet *mock.Wallet, implicitAccountOutputData *mock.OutputData, blockIssuance *api.IssuanceBlockHeaderResponse, opts ...options.Option[builder.AccountOutputBuilder]) *mock.AccountData {
+func (d *DockerTestFramework) CreateAccountFromImplicitAccount(implicitAccount *ImplicitAccount, blockIssuance *api.IssuanceBlockHeaderResponse, opts ...options.Option[builder.AccountOutputBuilder]) *mock.AccountWithWallet {
 	ctx := context.TODO()
 
-	accountData, signedTx, block := d.TransitionImplicitAccountToAccountOutputBlock(accountWallet, implicitAccountOutputData, blockIssuance, opts...)
+	accountData, signedTx, block := d.TransitionImplicitAccountToAccountOutputBlock(implicitAccount, blockIssuance, opts...)
 
 	d.SubmitBlock(ctx, block)
 	d.CheckAccountStatus(ctx, block.MustID(), signedTx.Transaction.MustID(), accountData.OutputID, accountData.Address, true)
 
 	// update the wallet with the new account data
-	accountWallet.SetBlockIssuer(accountData)
+	implicitAccount.Wallet().SetBlockIssuer(accountData)
 
-	fmt.Printf("Account created, Bech addr: %s\n", accountData.Address.Bech32(accountWallet.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+	fmt.Printf("Account created, Bech addr: %s\n", accountData.Address.Bech32(implicitAccount.Wallet().Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
-	return accountWallet.Account(accountData.ID)
+	return mock.NewAccountWithWallet(implicitAccount.Wallet().Account(accountData.ID), implicitAccount.Wallet())
 }
 
 // CreateAccountFromFaucet creates a new account by requesting faucet funds to an implicit account address and then transitioning the new output to a full account output.
 // It already waits until the transaction is committed and the created account is useable.
-func (d *DockerTestFramework) CreateAccountFromFaucet() (*mock.Wallet, *mock.AccountData) {
-	ctx := context.TODO()
+func (d *DockerTestFramework) CreateAccountFromFaucet(name string) *mock.AccountWithWallet {
+	return d.CreateAccountFromImplicitAccount(d.CreateImplicitAccount(context.TODO(), name), d.defaultWallet.GetNewBlockIssuanceResponse())
+}
 
-	newWallet, implicitAccountOutputData := d.CreateImplicitAccount(ctx)
+func (d *DockerTestFramework) CreateAccountsFromFaucet(ctx context.Context, count int, names ...string) []*mock.AccountWithWallet {
+	implicitAccounts := d.CreateImplicitAccounts(ctx, count, names...)
 
-	accountData, signedTx, block := d.TransitionImplicitAccountToAccountOutputBlock(newWallet, implicitAccountOutputData, d.defaultWallet.GetNewBlockIssuanceResponse())
+	blockIssuance := d.defaultWallet.GetNewBlockIssuanceResponse()
 
-	d.SubmitBlock(ctx, block)
-	d.CheckAccountStatus(ctx, block.MustID(), signedTx.Transaction.MustID(), accountData.OutputID, accountData.Address, true)
+	// transition all implicit accounts in parallel
+	var wg sync.WaitGroup
+	accounts := make([]*mock.AccountWithWallet, count)
+	for i := range count {
+		wg.Add(1)
 
-	// update the wallet with the new account data
-	newWallet.SetBlockIssuer(accountData)
+		go func(nr int) {
+			defer wg.Done()
 
-	fmt.Printf("Account created, Bech addr: %s\n", accountData.Address.Bech32(newWallet.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+			accounts[nr] = d.CreateAccountFromImplicitAccount(implicitAccounts[nr], blockIssuance)
+		}(i)
+	}
+	// wait until all accounts are created
+	wg.Wait()
 
-	return newWallet, newWallet.Account(accountData.ID)
+	return accounts
 }
 
 // CreateNativeToken request faucet funds then use it to create native token for the account, and returns the updated Account.
@@ -169,7 +224,7 @@ func (d *DockerTestFramework) CreateNativeToken(fromWallet *mock.Wallet, mintedA
 	fmt.Println("Create native tokens transaction sent, blkID:", block.ID().ToHex(), ", txID:", signedTx.Transaction.MustID().ToHex(), ", slot:", block.ID().Slot())
 
 	// wait for the account to be committed
-	d.AwaitCommitment(block.ID().Slot())
+	d.AwaitCommittedSlot(block.ID().Slot(), false)
 
 	d.AssertIndexerAccount(fromWallet.BlockIssuer.AccountData)
 	//nolint:forcetypeassert

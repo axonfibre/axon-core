@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,20 +68,11 @@ func (d *DockerTestFramework) AssertValidatorExists(accountAddr *iotago.AccountA
 
 func (d *DockerTestFramework) AssertCommittee(expectedEpoch iotago.EpochIndex, expectedCommitteeMember []string) {
 	fmt.Println("Wait for committee selection..., expected epoch: ", expectedEpoch, ", expected committee size: ", len(expectedCommitteeMember))
-	defer fmt.Println("Wait for committee selection......done")
+	defer fmt.Println("Wait for committee selection... done!")
 
 	sort.Strings(expectedCommitteeMember)
 
-	status := d.NodeStatus("V1")
-	testAPI := d.defaultWallet.Client.CommittedAPI()
-	expectedSlotStart := testAPI.TimeProvider().EpochStart(expectedEpoch)
-
-	if status.LatestAcceptedBlockSlot < expectedSlotStart {
-		slotToWait := expectedSlotStart - status.LatestAcceptedBlockSlot
-		secToWait := time.Duration(slotToWait) * time.Duration(testAPI.ProtocolParameters().SlotDurationInSeconds()) * time.Second
-		fmt.Println("Wait for ", secToWait, "until expected epoch: ", expectedEpoch)
-		time.Sleep(secToWait)
-	}
+	d.AwaitLatestAcceptedBlockSlot(d.defaultWallet.Client.CommittedAPI().TimeProvider().EpochStart(expectedEpoch), true)
 
 	d.Eventually(func() error {
 		for _, node := range d.Nodes() {
@@ -110,11 +100,11 @@ func (d *DockerTestFramework) AssertCommittee(expectedEpoch iotago.EpochIndex, e
 	})
 }
 
-func (d *DockerTestFramework) AssertFinalizedSlot(condition func(iotago.SlotIndex) error) {
+func (d *DockerTestFramework) AssertFinalizedSlot(condition func(nodeName string, latestFinalizedSlot iotago.SlotIndex) error) {
 	for _, node := range d.Nodes() {
 		status := d.NodeStatus(node.Name)
 
-		err := condition(status.LatestFinalizedSlot)
+		err := condition(node.Name, status.LatestFinalizedSlot)
 		require.NoError(d.Testing, err)
 	}
 }
