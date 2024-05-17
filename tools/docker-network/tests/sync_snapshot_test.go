@@ -38,7 +38,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	d.WaitUntilNetworkReady()
 
 	ctx := context.Background()
-	clt := d.DefaultWallet().Client
+	defaultClient := d.DefaultWallet().Client
 
 	createAccountAndDelegateTo := func(receiver *dockertestframework.Node, name string) (*mock.Wallet, *mock.AccountData, *mock.OutputData) {
 		delegatorAccount := d.CreateAccountFromFaucet(name)
@@ -60,7 +60,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 	v2DelegatorWallet, v2DelegatorAccountData, v2DelegationOutputData := createAccountAndDelegateTo(d.Node("V2"), "account-2")
 
 	//nolint:forcetypeassert
-	currentEpoch := clt.CommittedAPI().TimeProvider().CurrentEpoch()
+	currentEpoch := defaultClient.CommittedAPI().TimeProvider().CurrentEpoch()
 	expectedEpoch := v2DelegationOutputData.Output.(*iotago.DelegationOutput).StartEpoch + 2
 	for range expectedEpoch - currentEpoch {
 		d.AwaitEpochFinalized()
@@ -80,7 +80,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 
 	d.AwaitEpochFinalized()
 
-	managementClient, err := clt.Management(getContextWithTimeout(5 * time.Second))
+	managementClient, err := defaultClient.Management(getContextWithTimeout(5 * time.Second))
 	require.NoError(t, err)
 
 	// take the snapshot and restart node5
@@ -96,7 +96,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 		d.AwaitEpochFinalized()
 
 		// check if the committee is the same among nodes
-		currentEpoch := clt.CommittedAPI().TimeProvider().CurrentEpoch()
+		currentEpoch := defaultClient.CommittedAPI().TimeProvider().CurrentEpoch()
 		d.AssertCommittee(currentEpoch, d.AccountsFromNodes(d.Nodes("V1", "V2", "V4")...))
 
 		// check if the account and rewardsOutput are available
@@ -118,7 +118,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 
 	// create V3 delegator, the committee should change to V1, V3, V4
 	v3DelegatorWallet, v3DelegatorAccountData, v3DelegationOutputData := createAccountAndDelegateTo(d.Node("V3"), "account-3")
-	currentEpoch = clt.CommittedAPI().TimeProvider().CurrentEpoch()
+	currentEpoch = defaultClient.CommittedAPI().TimeProvider().CurrentEpoch()
 	expectedEpoch = v3DelegationOutputData.Output.(*iotago.DelegationOutput).StartEpoch + 1
 	for range expectedEpoch - currentEpoch {
 		d.AwaitEpochFinalized()
@@ -136,7 +136,7 @@ func Test_SyncFromSnapshot(t *testing.T) {
 
 		// Deletes the database of node5 and restarts it with the just created snapshot.
 		d.ResetNode("node5", response.FilePath)
-		currentEpoch = clt.CommittedAPI().TimeProvider().EpochFromSlot(v3DelegatorWallet.CurrentSlot())
+		currentEpoch = defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(v3DelegatorWallet.CurrentSlot())
 		d.AssertCommittee(currentEpoch, d.AccountsFromNodes(d.Nodes("V1", "V3", "V4")...))
 
 		node5Clt = d.Client("node5")

@@ -50,13 +50,13 @@ func Test_ValidatorRewards(t *testing.T) {
 	// cancel the context when the test is done
 	t.Cleanup(cancel)
 
-	clt := d.DefaultWallet().Client
+	defaultClient := d.DefaultWallet().Client
 
 	// create two implicit accounts for "good" and "lazy" validator
 	validatorCount := 2
 	implicitAccounts := d.CreateImplicitAccounts(ctx, validatorCount, "goodValidator", "lazyValidator")
 
-	blockIssuance, err := clt.BlockIssuance(ctx)
+	blockIssuance, err := defaultClient.BlockIssuance(ctx)
 	require.NoError(t, err)
 
 	latestCommitmentSlot := blockIssuance.LatestCommitment.Slot
@@ -65,7 +65,7 @@ func Test_ValidatorRewards(t *testing.T) {
 	stakingStartEpoch := d.DefaultWallet().StakingStartEpochFromSlot(latestCommitmentSlot)
 
 	// we want to claim the rewards as soon as possible
-	stakingEndEpoch := stakingStartEpoch + clt.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
+	stakingEndEpoch := stakingStartEpoch + defaultClient.CommittedAPI().ProtocolParameters().StakingUnbondingPeriod()
 
 	// create accounts with staking feature for the validators
 	var wg sync.WaitGroup
@@ -95,12 +95,12 @@ func Test_ValidatorRewards(t *testing.T) {
 
 	// check if we missed to announce the candidacy during the staking start epoch because it takes time to create the account.
 	latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+	currentEpoch := defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
 	if annoucementStartEpoch < currentEpoch {
 		annoucementStartEpoch = currentEpoch
 	}
 
-	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
+	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(defaultClient.CommittedAPI(), annoucementStartEpoch)
 
 	// the candidacy announcement needs to be done before the nearing threshold of the epoch
 	// and we shouldn't start trying in the last possible slot, otherwise the tests might be wonky
@@ -120,17 +120,17 @@ func Test_ValidatorRewards(t *testing.T) {
 	}
 
 	// make sure the account is in the committee, so it can issue validation blocks
-	goodValidatorAddrBech32 := goodValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
-	lazyValidatorAddrBech32 := lazyValidator.Account().Address.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
+	goodValidatorAddrBech32 := goodValidator.Account().Address.Bech32(defaultClient.CommittedAPI().ProtocolParameters().Bech32HRP())
+	lazyValidatorAddrBech32 := lazyValidator.Account().Address.Bech32(defaultClient.CommittedAPI().ProtocolParameters().Bech32HRP())
 	d.AssertCommittee(annoucementStartEpoch+1, append(d.AccountsFromNodes(d.Nodes("V1", "V3", "V2", "V4")...), goodValidatorAddrBech32, lazyValidatorAddrBech32))
 
 	// create a new wait group for the next step
 	wg = sync.WaitGroup{}
 
 	// issue validation blocks to have performance
-	currentSlot := clt.CommittedAPI().TimeProvider().CurrentSlot()
-	validationBlocksEndSlot := clt.CommittedAPI().TimeProvider().EpochEnd(stakingEndEpoch)
-	secondsToWait := time.Duration(validationBlocksEndSlot-currentSlot) * time.Duration(clt.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
+	currentSlot := defaultClient.CommittedAPI().TimeProvider().CurrentSlot()
+	validationBlocksEndSlot := defaultClient.CommittedAPI().TimeProvider().EpochEnd(stakingEndEpoch)
+	secondsToWait := time.Duration(validationBlocksEndSlot-currentSlot) * time.Duration(defaultClient.CommittedAPI().ProtocolParameters().SlotDurationInSeconds()) * time.Second
 	fmt.Println("Issuing validation blocks, wait for ", secondsToWait, "until expected slot: ", validationBlocksEndSlot)
 
 	issueValidationBlocksInBackground(ctx, d, &wg, goodValidator.Wallet(), currentSlot, validationBlocksEndSlot, 5)

@@ -52,21 +52,21 @@ func Test_SmallerCommittee(t *testing.T) {
 
 	status := d.NodeStatus("V1")
 
-	clt := d.DefaultWallet().Client
-	initialEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
+	defaultClient := d.DefaultWallet().Client
+	initialEpoch := defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
 
 	// stop inx-validator plugin of validator 2
 	err = d.StopContainer(d.Node("V2").ContainerName)
 	require.NoError(t, err)
 
-	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), initialEpoch+2)
+	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), defaultClient.CommittedAPI().TimeProvider(), initialEpoch+2)
 	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes("V1", "V3", "V4")...))
 
 	// restart inx-validator plugin of validator 2
 	err = d.RestartContainer(d.Node("V2").ContainerName)
 	require.NoError(t, err)
 
-	nextEpoch = calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), nextEpoch+1)
+	nextEpoch = calcNextEpoch(d.NodeStatus("V1"), defaultClient.CommittedAPI().TimeProvider(), nextEpoch+1)
 	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes()...))
 }
 
@@ -97,16 +97,16 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 	err = d.StopContainer(d.Node("V2").ContainerName, d.Node("V3").ContainerName)
 	require.NoError(t, err)
 
-	clt := d.DefaultWallet().Client
+	defaultClient := d.DefaultWallet().Client
 	status := d.NodeStatus("V1")
 
 	// store initial finalized slot
 	prevFinalizedSlot := status.LatestFinalizedSlot
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(prevFinalizedSlot)
+	currentEpoch := defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(prevFinalizedSlot)
 
 	// due to no finalization, committee should be reused, remain 4 validators
 	// we check 2 epochs ahead
-	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), clt.CommittedAPI().TimeProvider(), currentEpoch+2)
+	nextEpoch := calcNextEpoch(d.NodeStatus("V1"), defaultClient.CommittedAPI().TimeProvider(), currentEpoch+2)
 	d.AssertCommittee(nextEpoch, d.AccountsFromNodes(d.Nodes()...))
 
 	// check if finalization stops
@@ -127,8 +127,8 @@ func Test_ReuseDueToNoFinalization(t *testing.T) {
 
 	// check if V2 missed to announce the candidacy during inx-validator restart.
 	latestAcceptedBlockSlot := d.NodeStatus("V1").LatestAcceptedBlockSlot
-	annoucementStartEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
-	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(clt.CommittedAPI(), annoucementStartEpoch)
+	annoucementStartEpoch := defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(latestAcceptedBlockSlot)
+	maxRegistrationSlot := dockertestframework.GetMaxRegistrationSlot(defaultClient.CommittedAPI(), annoucementStartEpoch)
 	// the candidacy announcement needs to be done before the nearing threshold of the epoch
 	if latestAcceptedBlockSlot >= maxRegistrationSlot {
 		// it's too late for validator to issue candidacy payloads anymore, so we wait until the next epoch
@@ -174,11 +174,11 @@ func Test_NoCandidacyPayload(t *testing.T) {
 
 	d.WaitUntilNetworkReady()
 
-	clt := d.DefaultWallet().Client
+	defaultClient := d.DefaultWallet().Client
 	status := d.NodeStatus("V1")
 	prevFinalizedSlot := status.LatestFinalizedSlot
 	fmt.Println("First finalized slot: ", prevFinalizedSlot)
-	currentEpoch := clt.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
+	currentEpoch := defaultClient.CommittedAPI().TimeProvider().EpochFromSlot(status.LatestAcceptedBlockSlot)
 
 	d.AssertCommittee(currentEpoch+1, d.AccountsFromNodes(d.Nodes()...))
 
