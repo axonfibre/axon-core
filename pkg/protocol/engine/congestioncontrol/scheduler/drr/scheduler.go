@@ -595,17 +595,19 @@ func (s *Scheduler) selectIssuer(slot iotago.SlotIndex) (Deficit, *IssuerQueue) 
 
 func (s *Scheduler) removeIssuer(issuerID iotago.AccountID, err error) {
 	q := s.basicBuffer.IssuerQueue(issuerID)
-	q.nonReadyMap.ForEach(func(_ iotago.BlockID, block *blocks.Block) bool {
-		block.SetDropped()
-		s.events.BlockDropped.Trigger(block, err)
+	if q != nil {
+		q.nonReadyMap.ForEach(func(_ iotago.BlockID, block *blocks.Block) bool {
+			block.SetDropped()
+			s.events.BlockDropped.Trigger(block, err)
 
-		return true
-	})
+			return true
+		})
 
-	for i := range q.readyHeap.Len() {
-		block := q.readyHeap[i].Value
-		block.SetDropped()
-		s.events.BlockDropped.Trigger(block, err)
+		for i := range q.readyHeap.Len() {
+			block := q.readyHeap[i].Value
+			block.SetDropped()
+			s.events.BlockDropped.Trigger(block, err)
+		}
 	}
 
 	s.deficits.Delete(issuerID)
