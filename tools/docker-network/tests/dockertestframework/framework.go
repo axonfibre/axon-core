@@ -138,8 +138,11 @@ func (d *DockerTestFramework) Run() error {
 
 	ch := make(chan error)
 	stopCh := make(chan struct{})
-	defer close(ch)
-	defer close(stopCh)
+
+	defer func() {
+		close(stopCh)
+		close(ch)
+	}()
 
 	ts := time.Now()
 	go func() {
@@ -149,10 +152,14 @@ func (d *DockerTestFramework) Run() error {
 		select {
 		case <-stopCh:
 			return
-		default:
-		}
 
-		ch <- err
+		default:
+			select {
+			case <-stopCh:
+				return
+			case ch <- err:
+			}
+		}
 	}()
 
 	timer := time.NewTimer(d.optsWaitForSync)
