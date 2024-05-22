@@ -54,7 +54,7 @@ func Test_Payload_Nil_Test(t *testing.T) {
 	fmt.Println("Creating native token")
 	d.CreateNativeToken(account1.Wallet(), 5_000_000, 10_000_000_000)
 
-	blk := lo.PanicOnErr(d.DefaultWallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
+	blk := lo.PanicOnErr(account1.Wallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
 	d.SubmitBlock(ctx, blk.ProtocolBlock())
 
 	d.AwaitEpochFinalized()
