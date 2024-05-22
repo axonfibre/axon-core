@@ -1,31 +1,34 @@
 #!/bin/bash
 
 # Create a function to join an array of strings by a given character
-function join { local IFS="$1"; shift; echo "$*"; }
+function join {
+  local IFS="$1"
+  shift
+  echo "$*"
+}
 
 # Initialize variables
 MONITORING=0
 MINIMAL=0
 
 # Loop over all arguments
-for arg in "$@"
-do
-    case $arg in
-        monitoring=*)
-        MONITORING="${arg#*=}"
-        shift
-        ;;
-        minimal=*)
-        MINIMAL="${arg#*=}"
-        shift
-        ;;
-        *)
-        # Unknown option
-        echo "Unknown argument: $arg"
-        echo 'Call with ./run.sh [monitoring=0|1] [minimal=0|1]'
-        exit 1
-        ;;
-    esac
+for arg in "$@"; do
+  case $arg in
+  monitoring=*)
+    MONITORING="${arg#*=}"
+    shift
+    ;;
+  minimal=*)
+    MINIMAL="${arg#*=}"
+    shift
+    ;;
+  *)
+    # Unknown option
+    echo "Unknown argument: $arg"
+    echo 'Call with ./run.sh [monitoring=0|1] [minimal=0|1]'
+    exit 1
+    ;;
+  esac
 done
 
 export DOCKER_BUILDKIT=1
@@ -94,7 +97,6 @@ if [ $MONITORING -ne 0 ]; then
 fi
 
 if [ $MINIMAL -ne 0 ]; then
-  PROFILES+=("minimal")
   echo "Minimal profile active"
 else
   PROFILES+=("full")
@@ -102,6 +104,8 @@ else
 fi
 
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
+echo $COMPOSE_PROFILES
+
 docker compose up
 
 echo "Clean up docker resources"
