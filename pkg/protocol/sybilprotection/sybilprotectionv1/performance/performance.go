@@ -104,7 +104,7 @@ func (t *Tracker) TrackCandidateBlock(block *blocks.Block) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if block.Payload().PayloadType() != iotago.PayloadCandidacyAnnouncement {
+	if payload := block.Payload(); payload == nil || payload.PayloadType() != iotago.PayloadCandidacyAnnouncement {
 		return
 	}
 
