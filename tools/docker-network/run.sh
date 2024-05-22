@@ -104,7 +104,6 @@ else
 fi
 
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
-echo $COMPOSE_PROFILES
 
 docker compose up
 
