@@ -38,9 +38,6 @@ services:
       --prometheus.goMetrics=true
       --prometheus.processMetrics=true
       --debugAPI.enabled=true
-    profiles:
-      - minimal
-      - full
 
   node-2-validator:
     image: docker-network-node-1-validator:latest
@@ -275,9 +272,6 @@ services:
       --inx.address=node-1-validator:9029
       --restAPI.bindAddress=0.0.0.0:9091
       --restAPI.advertiseAddress=inx-indexer:9091
-    profiles:
-      - minimal
-      - full
 
   inx-mqtt:
     image: iotaledger/inx-mqtt:2.0-alpha
@@ -291,9 +285,6 @@ services:
     command: >
       --inx.address=node-1-validator:9029
       --mqtt.websocket.bindAddress=inx-mqtt:1888
-    profiles:
-      - minimal
-      - full
 
   inx-blockissuer:
     image: iotaledger/inx-blockissuer:1.0-alpha
@@ -313,9 +304,6 @@ services:
       --restAPI.bindAddress=inx-blockissuer:9086
       --blockIssuer.accountAddress=rms1prkursay9fs2qjmfctamd6yxg9x8r3ry47786x0mvwek4qr9xd9d5c6gkun
       --blockIssuer.proofOfWork.targetTrailingZeros=5
-    profiles:
-      - minimal
-      - full
 
   inx-faucet:
     image: iotaledger/inx-faucet:2.0-alpha
@@ -343,9 +331,6 @@ services:
       --faucet.baseTokenAmountMaxTarget=5000000000
       --faucet.manaAmount=100000000
       --faucet.manaAmountMinFaucet=1000000000
-    profiles:
-      - minimal
-      - full
 
   inx-validator-1:
     image: iotaledger/inx-validator:1.0-alpha
@@ -365,9 +350,6 @@ services:
       --validator.accountAddress=rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6
       --validator.candidacyRetryInterval=${CANDIDACY_RETRY_INTERVAL:-10s}
       --validator.issueCandidacyPayload=${ISSUE_CANDIDACY_PAYLOAD_V1:-true}
-    profiles:
-      - minimal
-      - full
 
   inx-validator-2:
     image: iotaledger/inx-validator:1.0-alpha
@@ -447,9 +429,6 @@ services:
       - "--dashboard.auth.username=${DASHBOARD_USERNAME:-admin}"
       - "--dashboard.auth.passwordHash=${DASHBOARD_PASSWORD:-0000000000000000000000000000000000000000000000000000000000000000}"
       - "--dashboard.auth.passwordSalt=${DASHBOARD_SALT:-0000000000000000000000000000000000000000000000000000000000000000}"
-    profiles:
-      - minimal
-      - full
 
   inx-dashboard-2:
     container_name: inx-dashboard-2

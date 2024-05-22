@@ -216,6 +216,7 @@ func createGenesisOutput(api iotago.API, genesisTokenAmount iotago.BaseToken, ge
 		return output, nil
 	}
 
+	//nolint:nilnil // we want to return nil here
 	return nil, nil
 }
 

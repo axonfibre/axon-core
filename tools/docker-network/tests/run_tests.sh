@@ -20,6 +20,8 @@ mkdir -p docker-network-snapshots/
 # Allow 'others' to write, so a snapshot can be created via the management API from within docker containers.
 chmod o+w docker-network-snapshots/
 
+export COMPOSE_PROFILES="full"
+
 # Allow docker compose to build and cache an image
 docker compose build --build-arg DOCKER_BUILD_CONTEXT=${DOCKER_BUILD_CONTEXT} --build-arg DOCKERFILE_PATH=${DOCKERFILE_PATH}
 

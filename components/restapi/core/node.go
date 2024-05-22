@@ -1,6 +1,8 @@
 package core
 
-import "github.com/iotaledger/iota.go/v4/api"
+import (
+	"github.com/iotaledger/iota.go/v4/api"
+)
 
 func info() *api.InfoResponse {
 	return &api.InfoResponse{

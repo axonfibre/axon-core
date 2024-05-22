@@ -113,7 +113,7 @@ func (o *SybilProtection) TrackBlock(block *blocks.Block) {
 		return
 	}
 
-	if block.Payload().PayloadType() != iotago.PayloadCandidacyAnnouncement {
+	if payload := block.Payload(); payload == nil || payload.PayloadType() != iotago.PayloadCandidacyAnnouncement {
 		return
 	}
 
