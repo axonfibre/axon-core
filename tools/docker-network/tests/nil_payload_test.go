@@ -4,7 +4,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,11 +13,8 @@ import (
 	"github.com/iotaledger/iota-core/tools/docker-network/tests/dockertestframework"
 )
 
-// Test_AccountTransitions follows the account state transition flow described in:
-// 1. Create account-1.
-// 2. Create account-2.
-// 3. account-1 requests faucet funds then allots 1000 mana to account-2.
-// 4. account-2 requests faucet funds then creates native tokens.
+// Test_Payload_Nil tests that sending a nil payload does not result in a panic.
+// This is a test to ensure issue #978 is fixed.
 func Test_Payload_Nil_Test(t *testing.T) {
 	d := dockertestframework.NewDockerTestFramework(t,
 		dockertestframework.WithProtocolParametersOptions(dockertestframework.ShortSlotsAndEpochsProtocolParametersOptionsFunc()...),
@@ -42,20 +38,12 @@ func Test_Payload_Nil_Test(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// create account-1
-	accounts := d.CreateAccountsFromFaucet(ctx, 2, "account-1", "account-2")
-	account1 := accounts[0]
-	account2 := accounts[1]
+	account := d.CreateAccountFromFaucet("account-1")
 
-	// allot 1000 mana from account-1 to account-2
-	fmt.Println("Allotting mana from account-1 to account-2")
-	d.RequestFaucetFundsAndAllotManaTo(account1.Wallet(), account2.Account(), 1000)
-
-	// create native token
-	fmt.Println("Creating native token")
-	d.CreateNativeToken(account1.Wallet(), 5_000_000, 10_000_000_000)
-
-	blk := lo.PanicOnErr(account1.Wallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
+	// Issue a block with a nil payload.
+	blk := lo.PanicOnErr(account.Wallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
 	d.SubmitBlock(ctx, blk.ProtocolBlock())
 
+	// Wait for the epoch end to ensure the test does not exit early.
 	d.AwaitEpochFinalized()
 }
