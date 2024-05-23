@@ -38,12 +38,12 @@ func Test_Payload_Nil_Test(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// create account-1
-	accounts := d.CreateAccountsFromFaucet(ctx, 1, "account-1")
-	account1 := accounts[0]
+	account := d.CreateAccountFromFaucet("account-1")
 
 	// Issue a block with a nil payload.
-	blk := lo.PanicOnErr(account1.Wallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
+	blk := lo.PanicOnErr(account.Wallet().CreateBasicBlock(ctx, "something", mock.WithPayload(nil)))
 	d.SubmitBlock(ctx, blk.ProtocolBlock())
 
+	// Wait for the epoch end to ensure the test does not exit early.
 	d.AwaitEpochFinalized()
 }
