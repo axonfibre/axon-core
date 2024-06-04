@@ -169,12 +169,20 @@ func (l *Ledger) CommitSlot(slot iotago.SlotIndex) (stateRoot iotago.Identifier,
 	// account changes at UTXO level without needing to worry about multiple spenders of the same account in the same slot,
 	// we only care about the initial account output to be consumed and the final account output to be created.
 	// output side
-	createdAccounts, consumedAccounts, destroyedAccounts, err := l.processCreatedAndConsumedAccountOutputs(stateDiff, accountDiffs)
+	createdAccountOutputs, consumedAccountOutputs, createdAccounts, destroyedAccounts, err := l.processCreatedAndConsumedAccountOutputs(stateDiff, accountDiffs)
 	if err != nil {
 		return iotago.Identifier{}, iotago.Identifier{}, iotago.Identifier{}, nil, nil, nil, ierrors.Wrapf(err, "failed to process outputs consumed and created in slot %d", slot)
 	}
 
-	l.prepareAccountDiffs(accountDiffs, slot, consumedAccounts, createdAccounts)
+	// Trigger AccountDestroyed event before accounts are removed from the ledgers so that components (like Scheduler),
+	// that listen to that event always can access consistent view of the account.
+	_ = destroyedAccounts.ForEach(func(accountID iotago.AccountID) error {
+		l.events.AccountDestroyed.Trigger(accountID)
+
+		return nil
+	})
+
+	l.prepareAccountDiffs(accountDiffs, slot, consumedAccountOutputs, createdAccountOutputs)
 
 	// Commit the changes
 	// Update the UTXO ledger
@@ -199,9 +207,17 @@ func (l *Ledger) CommitSlot(slot iotago.SlotIndex) (stateRoot iotago.Identifier,
 	}
 
 	// Update the mana manager's cache
-	if err = l.manaManager.ApplyDiff(slot, destroyedAccounts, createdAccounts, accountDiffs); err != nil {
+	if err = l.manaManager.ApplyDiff(slot, destroyedAccounts, createdAccountOutputs, accountDiffs); err != nil {
 		return iotago.Identifier{}, iotago.Identifier{}, iotago.Identifier{}, nil, nil, nil, ierrors.Wrapf(err, "failed to apply diff to mana manager for slot %d", slot)
 	}
+
+	// Created account event need to be triggered only after the AccountLedger and UTXO ledger are updated,
+	// so that components (like Scheduler) that listen to the event can access the consistent account state.
+	_ = createdAccounts.ForEach(func(accountID iotago.AccountID) error {
+		l.events.AccountCreated.Trigger(accountID)
+
+		return nil
+	})
 
 	// Mark each transaction as committed so the mempool can evict it
 	stateDiff.ExecutedTransactions().ForEach(func(_ iotago.TransactionID, tx mempool.TransactionMetadata) bool {
@@ -496,9 +512,10 @@ func (l *Ledger) prepareAccountDiffs(accountDiffs map[iotago.AccountID]*model.Ac
 	}
 }
 
-func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.StateDiff, accountDiffs map[iotago.AccountID]*model.AccountDiff) (createdAccounts map[iotago.AccountID]*utxoledger.Output, consumedAccounts map[iotago.AccountID]*utxoledger.Output, destroyedAccounts ds.Set[iotago.AccountID], err error) {
-	createdAccounts = make(map[iotago.AccountID]*utxoledger.Output)
-	consumedAccounts = make(map[iotago.AccountID]*utxoledger.Output)
+func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.StateDiff, accountDiffs map[iotago.AccountID]*model.AccountDiff) (createdAccountOutputs map[iotago.AccountID]*utxoledger.Output, consumedAccountOutputs map[iotago.AccountID]*utxoledger.Output, createdAccounts ds.Set[iotago.AccountID], destroyedAccounts ds.Set[iotago.AccountID], err error) {
+	createdAccountOutputs = make(map[iotago.AccountID]*utxoledger.Output)
+	consumedAccountOutputs = make(map[iotago.AccountID]*utxoledger.Output)
+	createdAccounts = ds.NewSet[iotago.AccountID]()
 	destroyedAccounts = ds.NewSet[iotago.AccountID]()
 
 	newAccountDelegation := make(map[iotago.ChainID]*iotago.DelegationOutput)
@@ -523,10 +540,10 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			accountID := createdAccount.AccountID
 			if accountID.Empty() {
 				accountID = iotago.AccountIDFromOutputID(createdOutput.OutputID())
-				l.events.AccountCreated.Trigger(accountID)
+				createdAccounts.Add(accountID)
 			}
 
-			createdAccounts[accountID] = createdOutput
+			createdAccountOutputs[accountID] = createdOutput
 		case iotago.OutputDelegation:
 			delegationOutput, _ := createdOutput.Output().(*iotago.DelegationOutput)
 			delegationID := delegationOutput.DelegationID
@@ -542,8 +559,8 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			// if a basic output is sent to an implicit account creation address, we need to create the account
 			if createdOutput.Output().UnlockConditionSet().Address().Address.Type() == iotago.AddressImplicitAccountCreation {
 				accountID := iotago.AccountIDFromOutputID(createdOutput.OutputID())
-				l.events.AccountCreated.Trigger(accountID)
-				createdAccounts[accountID] = createdOutput
+				createdAccounts.Add(accountID)
+				createdAccountOutputs[accountID] = createdOutput
 			}
 		}
 
@@ -551,7 +568,7 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 	})
 
 	if err != nil {
-		return nil, nil, nil, ierrors.Wrap(err, "error while processing created states")
+		return nil, nil, nil, nil, ierrors.Wrap(err, "error while processing created states")
 	}
 
 	// input side
@@ -574,10 +591,10 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			if consumedAccount.FeatureSet().BlockIssuer() == nil && consumedAccount.FeatureSet().Staking() == nil {
 				return true
 			}
-			consumedAccounts[accountID] = spentOutput
+			consumedAccountOutputs[accountID] = spentOutput
 
 			// if we have consumed accounts that are not created in the same slot, we need to track them as destroyed
-			if _, exists := createdAccounts[accountID]; !exists {
+			if _, exists := createdAccountOutputs[accountID]; !exists {
 				destroyedAccounts.Add(accountID)
 			}
 
@@ -595,7 +612,7 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			// if a basic output (implicit account) is consumed, get the accountID as hash of the output ID.
 			if spentOutput.Output().UnlockConditionSet().Address().Address.Type() == iotago.AddressImplicitAccountCreation {
 				accountID := iotago.AccountIDFromOutputID(spentOutput.OutputID())
-				consumedAccounts[accountID] = spentOutput
+				consumedAccountOutputs[accountID] = spentOutput
 			}
 		}
 
@@ -609,10 +626,10 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 	}
 
 	if err != nil {
-		return nil, nil, nil, ierrors.Wrap(err, "error while processing created states")
+		return nil, nil, nil, nil, ierrors.Wrap(err, "error while processing created states")
 	}
 
-	return createdAccounts, consumedAccounts, destroyedAccounts, nil
+	return createdAccountOutputs, consumedAccountOutputs, createdAccounts, destroyedAccounts, nil
 }
 
 func (l *Ledger) processStateDiffTransactions(stateDiff mempool.StateDiff) (spents utxoledger.Spents, outputs utxoledger.Outputs, accountDiffs map[iotago.AccountID]*model.AccountDiff, err error) {
