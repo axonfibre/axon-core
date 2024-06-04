@@ -174,6 +174,13 @@ func (l *Ledger) CommitSlot(slot iotago.SlotIndex) (stateRoot iotago.Identifier,
 		return iotago.Identifier{}, iotago.Identifier{}, iotago.Identifier{}, nil, nil, nil, ierrors.Wrapf(err, "failed to process outputs consumed and created in slot %d", slot)
 	}
 
+	// Trigger AccountDestroyed event before accounts are removed from the ledgers so that components (like Scheduler),
+	// that listen to that event always can access consistent view of the account.
+	_ = destroyedAccounts.ForEach(func(accountID iotago.AccountID) error {
+		l.events.AccountDestroyed.Trigger(accountID)
+
+		return nil
+	})
 	l.prepareAccountDiffs(accountDiffs, slot, consumedAccounts, createdAccounts)
 
 	// Commit the changes
@@ -201,6 +208,12 @@ func (l *Ledger) CommitSlot(slot iotago.SlotIndex) (stateRoot iotago.Identifier,
 	// Update the mana manager's cache
 	if err = l.manaManager.ApplyDiff(slot, destroyedAccounts, createdAccounts, accountDiffs); err != nil {
 		return iotago.Identifier{}, iotago.Identifier{}, iotago.Identifier{}, nil, nil, nil, ierrors.Wrapf(err, "failed to apply diff to mana manager for slot %d", slot)
+	}
+
+	// Created account event need to be triggered only after the AccountLedger and UTXO ledger are updated,
+	// so that components (like Scheduler) that listen to the event can access the consistent account state.
+	for accountID := range createdAccounts {
+		l.events.AccountCreated.Trigger(accountID)
 	}
 
 	// Mark each transaction as committed so the mempool can evict it
@@ -523,7 +536,6 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			accountID := createdAccount.AccountID
 			if accountID.Empty() {
 				accountID = iotago.AccountIDFromOutputID(createdOutput.OutputID())
-				l.events.AccountCreated.Trigger(accountID)
 			}
 
 			createdAccounts[accountID] = createdOutput
@@ -542,7 +554,6 @@ func (l *Ledger) processCreatedAndConsumedAccountOutputs(stateDiff mempool.State
 			// if a basic output is sent to an implicit account creation address, we need to create the account
 			if createdOutput.Output().UnlockConditionSet().Address().Address.Type() == iotago.AddressImplicitAccountCreation {
 				accountID := iotago.AccountIDFromOutputID(createdOutput.OutputID())
-				l.events.AccountCreated.Trigger(accountID)
 				createdAccounts[accountID] = createdOutput
 			}
 		}
