@@ -474,8 +474,7 @@ func (s *Scheduler) selectBasicBlockWithoutLocking() {
 			issuerID := queue.IssuerID()
 
 			if _, err := s.incrementDeficit(issuerID, rounds, slot); err != nil {
-				s.errorHandler(ierrors.Wrapf(err, "failed to increment deficit for issuerID %s in slot %d", issuerID, slot))
-				s.removeIssuer(issuerID, err)
+				s.LogPanic(ierrors.Wrapf(err, "failed to increment deficit for issuerID %s in slot %d", issuerID, slot).Error())
 			}
 
 			return true
@@ -493,8 +492,7 @@ func (s *Scheduler) selectBasicBlockWithoutLocking() {
 		issuerID := q.IssuerID()
 		newDeficit, err := s.incrementDeficit(issuerID, 1, slot)
 		if err != nil {
-			s.errorHandler(ierrors.Wrapf(err, "failed to increment deficit for issuerID %s in slot %d", issuerID, slot))
-			s.removeIssuer(issuerID, err)
+			s.LogPanic(ierrors.Wrapf(err, "failed to increment deficit for issuerID %s in slot %d", issuerID, slot).Error())
 
 			return
 		}
@@ -559,10 +557,7 @@ func (s *Scheduler) selectIssuer(slot iotago.SlotIndex) (Deficit, *IssuerQueue) 
 			// calculate how many rounds we need to skip to accumulate enough deficit.
 			quantum, err := s.quantumFunc(issuerID, slot)
 			if err != nil {
-				s.errorHandler(ierrors.Wrapf(err, "failed to retrieve quantum for issuerID %s in slot %d during issuer selection", issuerID, slot))
-
-				// if quantum, can't be retrieved, we need to remove this issuer.
-				s.removeIssuer(issuerID, err)
+				s.LogPanic(ierrors.Wrapf(err, "failed to retrieve quantum for issuerID %s in slot %d during issuer selection", issuerID, slot).Error())
 
 				break
 			}
@@ -658,7 +653,7 @@ func (s *Scheduler) updateDeficit(accountID iotago.AccountID, delta Deficit) (De
 	})
 
 	if updateErr != nil {
-		s.removeIssuer(accountID, updateErr)
+		s.LogPanic(updateErr.Error())
 
 		return 0, updateErr
 	}
