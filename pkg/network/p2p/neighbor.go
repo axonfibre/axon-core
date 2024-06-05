@@ -3,6 +3,7 @@ package p2p
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	NeighborsSendQueueSize = 20_000
+	NeighborsSendQueueSize           = 20_000
+	DroppedPacketDisconnectThreshold = 100
 )
 
 type queuedPacket struct {
@@ -31,7 +33,8 @@ type (
 
 // neighbor describes the established p2p connection to another peer.
 type neighbor struct {
-	peer *network.Peer
+	peer                 *network.Peer
+	droppedPacketCounter atomic.Uint32
 
 	logger log.Logger
 
@@ -84,7 +87,12 @@ func (n *neighbor) Peer() *network.Peer {
 func (n *neighbor) Enqueue(packet proto.Message, protocolID protocol.ID) {
 	select {
 	case n.sendQueue <- &queuedPacket{protocolID: protocolID, packet: packet}:
+		n.droppedPacketCounter.Store(0)
 	default:
+		// Drop a neighbor that does not read from the full queue.
+		if n.droppedPacketCounter.Add(1) >= DroppedPacketDisconnectThreshold {
+			n.Close()
+		}
 		n.logger.LogWarn("Dropped packet due to SendQueue being full")
 	}
 }
