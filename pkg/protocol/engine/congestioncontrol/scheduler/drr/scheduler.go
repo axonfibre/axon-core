@@ -370,10 +370,11 @@ loop:
 		case blockToSchedule = <-s.basicBuffer.blockChan:
 			currentAPI := s.apiProvider.CommittedAPI()
 			rate := currentAPI.ProtocolParameters().CongestionControlParameters().SchedulerRate
-			if waitTime := s.basicBuffer.waitTime(float64(rate), blockToSchedule); waitTime > 0 {
+			for waitTime := s.basicBuffer.waitTime(float64(rate), blockToSchedule); waitTime > 0; {
 				timer := time.NewTimer(waitTime)
 				<-timer.C
 			}
+
 			s.basicBuffer.updateTokenBucket(float64(rate), float64(currentAPI.MaxBlockWork()))
 
 			s.scheduleBasicBlock(blockToSchedule)

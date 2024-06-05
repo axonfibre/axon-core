@@ -371,7 +371,7 @@ func (b *BasicBuffer) ringInsert(v interface{}) *ring.Ring {
 func (b *BasicBuffer) waitTime(rate float64, block *blocks.Block) time.Duration {
 	tokensRequired := float64(block.WorkScore()) - (b.tokenBucket + rate*time.Since(b.lastScheduleTime).Seconds())
 
-	return lo.Max(0, time.Duration(tokensRequired/rate))
+	return lo.Max(0, time.Duration(tokensRequired/rate)*time.Second)
 }
 
 func (b *BasicBuffer) updateTokenBucket(rate float64, tokenBucketSize float64) {
