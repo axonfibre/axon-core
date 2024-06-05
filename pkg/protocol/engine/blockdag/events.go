@@ -3,6 +3,7 @@ package blockdag
 import (
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/iota-core/pkg/protocol/engine/blocks"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // Events is a collection of Tangle related Events.
@@ -19,6 +20,9 @@ type Events struct {
 	// MissingBlockAppended is triggered when a previously missing Block was appended.
 	MissingBlockAppended *event.Event1[*blocks.Block]
 
+	// BlockNotAppended is triggered when an incoming Block could not be successfully appended.
+	BlockNotAppended *event.Event1[iotago.BlockID]
+
 	// BlockInvalid is triggered when a Block is found to be invalid.
 	BlockInvalid *event.Event2[*blocks.Block, error]
 
@@ -32,6 +36,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockSolid:           event.New1[*blocks.Block](),
 		BlockMissing:         event.New1[*blocks.Block](),
 		MissingBlockAppended: event.New1[*blocks.Block](),
+		BlockNotAppended:     event.New1[iotago.BlockID](),
 		BlockInvalid:         event.New2[*blocks.Block, error](),
 	}
 })

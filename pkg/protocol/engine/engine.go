@@ -585,15 +585,23 @@ func (e *Engine) setupEvictionState() {
 
 func (e *Engine) setupBlockRequester() {
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
-
+	wp := e.Workers.CreatePool("BlockRequester", workerpool.WithWorkerCount(1)) // Using just 1 worker to avoid contention
 	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
 	// where we try to delete the request again before it is created. Thus, continuing to request forever.
 	e.Events.BlockDAG.BlockMissing.Hook(func(block *blocks.Block) {
 		e.BlockRequester.StartTicker(block.ID())
 	})
+
 	e.Events.BlockDAG.MissingBlockAppended.Hook(func(block *blocks.Block) {
 		e.BlockRequester.StopTicker(block.ID())
-	}, event.WithWorkerPool(e.Workers.CreatePool("BlockRequester", workerpool.WithWorkerCount(1)))) // Using just 1 worker to avoid contention
+	}, event.WithWorkerPool(wp))
+
+	// Remove the block from the ticker if it failed to be appended.
+	// It's executed for all blocks to avoid locking twice:
+	// once to check if the block has the ticker and then again to remove it.
+	e.Events.BlockDAG.BlockNotAppended.Hook(func(blockID iotago.BlockID) {
+		e.BlockRequester.StopTicker(blockID)
+	}, event.WithWorkerPool(wp))
 }
 
 func (e *Engine) setupPruning() {

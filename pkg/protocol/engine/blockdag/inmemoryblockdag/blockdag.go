@@ -47,6 +47,7 @@ func NewProvider(opts ...options.Option[BlockDAG]) module.Provider[*engine.Engin
 
 			e.Events.PreSolidFilter.BlockPreAllowed.Hook(func(block *model.Block) {
 				if _, _, err := b.Append(block); err != nil {
+					b.events.BlockNotAppended.Trigger(block.ID())
 					b.LogError("failed to append block", "blockID", block.ID(), "issuer", block.ProtocolBlock().Header.IssuerID, "err", err)
 				}
 			}, event.WithWorkerPool(wp))
