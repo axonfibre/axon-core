@@ -722,14 +722,6 @@ func (l *Ledger) resolveAccountOutput(accountID iotago.AccountID, slot iotago.Sl
 	l.utxoLedger.ReadLockLedger()
 	defer l.utxoLedger.ReadUnlockLedger()
 
-	isUnspent, err := l.utxoLedger.IsOutputIDUnspentWithoutLocking(accountMetadata.OutputID())
-	if err != nil {
-		return nil, ierrors.Wrapf(err, "error while checking whether account with output id %s is unspent", accountMetadata.OutputID().ToHex())
-	}
-	if !isUnspent {
-		return nil, ierrors.WithMessagef(mempool.ErrStateNotFound, "unspent account with output id %s not found", accountMetadata.OutputID().ToHex())
-	}
-
 	accountOutput, err := l.utxoLedger.ReadOutputByOutputIDWithoutLocking(accountMetadata.OutputID())
 	if err != nil {
 		return nil, ierrors.Wrapf(err, "error while retrieving account with output id %s", accountMetadata.OutputID().ToHex())
