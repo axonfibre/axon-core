@@ -1,0 +1,46 @@
+name: Unit tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'documentation/**'
+  push:
+    branches:
+      - develop
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Print Go version
+        run: go version
+
+      - name: Run Tests
+        run: go test ./... -tags rocksdb -count=1 -timeout 20m
+
+  unit-tests-race:
+    name: Unit tests -race
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Print Go version
+        run: go version
+
+      - name: Run Tests with -race
+        run: go test ./... -tags rocksdb -count=1 -race -short -timeout 30m

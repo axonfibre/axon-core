@@ -1,0 +1,275 @@
+package inmemorybooker
+
+import (
+	"sync/atomic"
+
+	"github.com/iotaledger/hive.go/ds"
+	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/iota-core/pkg/model"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/blocks"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/booker"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/ledger"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/mempool"
+	"github.com/iotaledger/iota-core/pkg/protocol/engine/mempool/spenddag"
+	iotago "github.com/iotaledger/iota.go/v4"
+)
+
+type Booker struct {
+	events *booker.Events
+
+	blockCache *blocks.Blocks
+
+	ledger ledger.Ledger
+
+	spendDAG spenddag.SpendDAG[iotago.TransactionID, mempool.StateID, ledger.BlockVoteRank]
+
+	loadBlockFromStorage func(id iotago.BlockID) (*model.Block, bool)
+
+	errorHandler func(error)
+	apiProvider  iotago.APIProvider
+
+	module.Module
+}
+
+func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine, booker.Booker] {
+	return module.Provide(func(e *engine.Engine) booker.Booker {
+		b := New(e.NewSubModule("Booker"), e, e.BlockCache, e.ErrorHandler("booker"), opts...)
+
+		e.ConstructedEvent().OnTrigger(func() {
+			b.Init(e.Ledger, e.Block)
+
+			e.Events.SeatManager.BlockProcessed.Hook(func(block *blocks.Block) {
+				if err := b.Queue(block); err != nil {
+					b.errorHandler(err)
+				}
+			})
+
+			e.Events.Booker.LinkTo(b.events)
+
+			b.InitializedEvent().Trigger()
+		})
+
+		return b
+	})
+}
+
+func New(subModule module.Module, apiProvider iotago.APIProvider, blockCache *blocks.Blocks, errorHandler func(error), opts ...options.Option[Booker]) *Booker {
+	return options.Apply(&Booker{
+		Module:       subModule,
+		events:       booker.NewEvents(),
+		apiProvider:  apiProvider,
+		blockCache:   blockCache,
+		errorHandler: errorHandler,
+	}, opts, func(b *Booker) {
+		b.ShutdownEvent().OnTrigger(func() {
+			b.StoppedEvent().Trigger()
+		})
+
+		b.ConstructedEvent().Trigger()
+	})
+}
+
+func (b *Booker) Init(ledger ledger.Ledger, loadBlockFromStorage func(iotago.BlockID) (*model.Block, bool)) {
+	b.ledger = ledger
+	b.loadBlockFromStorage = loadBlockFromStorage
+
+	ledger.InitializedEvent().OnTrigger(func() {
+		b.spendDAG = ledger.SpendDAG()
+
+		ledger.MemPool().OnTransactionAttached(func(transaction mempool.TransactionMetadata) {
+			transaction.OnAccepted(func() {
+				b.events.TransactionAccepted.Trigger(transaction)
+			})
+
+			transaction.OnInvalid(func(err error) {
+				b.events.TransactionInvalid.Trigger(transaction, err)
+			})
+		})
+
+		b.InitializedEvent().Trigger()
+	})
+}
+
+// Queue checks if payload is solid and then sets up the block to react to its parents.
+func (b *Booker) Queue(block *blocks.Block) error {
+	signedTransactionMetadata, containsTransaction := b.ledger.AttachTransaction(block)
+	if !containsTransaction {
+		b.setupBlock(block, nil)
+
+		return nil
+	} else if signedTransactionMetadata == nil {
+		return ierrors.Errorf("transaction in block %s was not attached", block.ID())
+	}
+
+	// Based on the assumption that we always fork and the UTXO and Tangle past cones are always fully known.
+	signedTransactionMetadata.OnSignaturesValid(func() {
+		transactionMetadata := signedTransactionMetadata.TransactionMetadata()
+
+		if orphanedSlot, isOrphaned := transactionMetadata.OrphanedSlot(); isOrphaned && orphanedSlot <= block.SlotCommitmentID().Slot() {
+			block.SetInvalid()
+
+			return
+		}
+
+		transactionMetadata.OnBooked(func() {
+			block.SetPayloadSpenderIDs(transactionMetadata.SpenderIDs())
+			b.setupBlock(block, signedTransactionMetadata)
+		})
+
+		transactionMetadata.OnInvalid(func(_ error) {
+			b.setupBlock(block, signedTransactionMetadata)
+		})
+	})
+
+	signedTransactionMetadata.OnSignaturesInvalid(func(_ error) {
+		b.setupBlock(block, signedTransactionMetadata)
+	})
+
+	return nil
+}
+
+// Reset resets the component to a clean state as if it was created at the last commitment.
+func (b *Booker) Reset() { /* nothing to reset but comply with interface */ }
+
+func (b *Booker) setupBlock(block *blocks.Block, signedTransactionMetadata mempool.SignedTransactionMetadata) {
+	var payloadDependencies, directlyReferencedPayloadDependencies ds.Set[mempool.StateMetadata]
+
+	if signedTransactionMetadata != nil && signedTransactionMetadata.SignaturesInvalid() == nil && !signedTransactionMetadata.TransactionMetadata().IsInvalid() {
+		payloadDependencies = signedTransactionMetadata.TransactionMetadata().Inputs()
+		directlyReferencedPayloadDependencies = ds.NewSet[mempool.StateMetadata]()
+	}
+
+	var unbookedParentsCount atomic.Int32
+	unbookedParentsCount.Store(int32(len(block.Parents())))
+
+	block.ForEachParent(func(parent iotago.Parent) {
+		parentBlock, exists := b.blockCache.Block(parent.ID)
+		if !exists {
+			b.errorHandler(ierrors.Errorf("cannot setup block %s without existing parent %s", block.ID(), parent.ID))
+
+			return
+		}
+
+		parentBlock.Booked().OnUpdateOnce(func(_ bool, _ bool) {
+			if directlyReferencedPayloadDependencies != nil {
+				if signedTx, hasTx := parentBlock.SignedTransaction(); hasTx {
+					if parentTransactionMetadata, exists := b.ledger.TransactionMetadata(signedTx.Transaction.MustID()); exists {
+						directlyReferencedPayloadDependencies.AddAll(parentTransactionMetadata.Outputs())
+					}
+				}
+			}
+
+			if unbookedParentsCount.Add(-1) == 0 {
+				block.ParentsBooked.Trigger()
+			}
+		})
+
+		parentBlock.Invalid().OnUpdateOnce(func(_ bool, _ bool) {
+			if block.SetInvalid() {
+				b.events.BlockInvalid.Trigger(block, ierrors.Errorf("block marked as invalid in Booker because parent block %s is invalid", parentBlock.ID()))
+			}
+		})
+	})
+
+	block.ParentsBooked.OnTrigger(func() {
+		if directlyReferencedPayloadDependencies != nil {
+			payloadDependencies.DeleteAll(directlyReferencedPayloadDependencies)
+		}
+
+		block.WaitForPayloadDependencies(payloadDependencies)
+	})
+
+	block.PayloadDependenciesAvailable.OnTrigger(func() {
+		if err := b.book(block); err != nil {
+			if block.SetInvalid() {
+				b.events.BlockInvalid.Trigger(block, ierrors.Wrap(err, "failed to book block"))
+			}
+		}
+	})
+}
+
+func (b *Booker) book(block *blocks.Block) error {
+	spendersToInherit, err := b.inheritSpenders(block)
+	if err != nil {
+		return ierrors.Wrapf(err, "failed to inherit spenders for block %s", block.ID())
+	}
+
+	// The block does not inherit spenders that have been orphaned with respect to its commitment.
+	for it := spendersToInherit.Iterator(); it.HasNext(); {
+		spenderID := it.Next()
+
+		txMetadata, exists := b.ledger.MemPool().TransactionMetadata(spenderID)
+		if !exists {
+			return ierrors.Errorf("failed to load transaction %s for block %s", spenderID.String(), block.ID())
+		}
+
+		if orphanedSlot, orphaned := txMetadata.OrphanedSlot(); orphaned && orphanedSlot <= block.SlotCommitmentID().Slot() {
+			// Merge-to-master orphaned spenders.
+			spendersToInherit.Delete(spenderID)
+		}
+	}
+
+	block.SetSpenderIDs(spendersToInherit)
+	block.SetBooked()
+	b.events.BlockBooked.Trigger(block)
+
+	return nil
+}
+
+func (b *Booker) inheritSpenders(block *blocks.Block) (spenderIDs ds.Set[iotago.TransactionID], err error) {
+	spenderIDsToInherit := ds.NewSet[iotago.TransactionID]()
+
+	// Inherit spenderIDs from parents based on the parent type.
+	for _, parent := range block.ParentsWithType() {
+		parentBlock, exists := b.blockCache.Block(parent.ID)
+		if !exists {
+			return nil, ierrors.Errorf("parent %s does not exist", parent.ID)
+		}
+
+		switch parent.Type {
+		case iotago.StrongParentType:
+			spenderIDsToInherit.AddAll(parentBlock.SpenderIDs())
+		case iotago.WeakParentType:
+			spenderIDsToInherit.AddAll(parentBlock.PayloadSpenderIDs())
+		case iotago.ShallowLikeParentType:
+			// If parent block is a RootBlock, then make sure that the block contains a transaction;
+			// otherwise, the reference is invalid.
+			if parentBlock.IsRootBlock() {
+				parentModelBlock, exists := b.loadBlockFromStorage(parent.ID)
+				if !exists {
+					return nil, ierrors.Wrapf(err, "shallow like parent %s does not exist in storage", parent.ID.String())
+				}
+
+				if _, hasTx := parentModelBlock.SignedTransaction(); !hasTx {
+					return nil, ierrors.Wrapf(err, "shallow like parent %s does not contain a conflicting transaction", parent.ID.String())
+				}
+
+				break
+			}
+
+			// Check whether the parent contains a conflicting TX,
+			// otherwise reference is invalid and the block should be marked as invalid as well.
+			if _, hasTx := parentBlock.SignedTransaction(); !hasTx {
+				return nil, ierrors.Wrapf(err, "shallow like parent %s does not contain a conflicting transaction", parent.ID.String())
+			}
+
+			spenderIDsToInherit.AddAll(parentBlock.PayloadSpenderIDs())
+			//  remove all conflicting spenders from spenderIDsToInherit
+			for _, spenderID := range parentBlock.PayloadSpenderIDs().ToSlice() {
+				if conflictingSpends, exists := b.spendDAG.ConflictingSpenders(spenderID); exists {
+					spenderIDsToInherit.DeleteAll(b.spendDAG.FutureCone(conflictingSpends))
+				}
+			}
+		}
+	}
+
+	// Add all spenders from the block's payload itself.
+	// Forking on booking: we determine the block's PayloadSpenderIDs by treating each TX as a spender.
+	spenderIDsToInherit.AddAll(block.PayloadSpenderIDs())
+
+	// Only inherit spenders that are not yet accepted (aka merge to master).
+	return b.spendDAG.UnacceptedSpenders(spenderIDsToInherit), nil
+}

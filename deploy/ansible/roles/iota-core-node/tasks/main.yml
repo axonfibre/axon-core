@@ -1,0 +1,67 @@
+- name: Pull docker image async
+  shell: docker pull "{{iota_core_docker_image_repo}}:{{iota_core_docker_image_tag}}"
+  async: 300
+  poll: 5
+
+- name: Set log rotation for a maximum size of 5GB
+  blockinfile:
+    path: /etc/logrotate.d/rsyslog
+    block: maxsize 5G
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    insertafter: "{\n"
+    state: present
+
+- name: Create node directory
+  file:
+    path: /opt/iota-core
+    state: directory
+    mode: '0755'
+
+- name: Copy genesis snapshot
+  copy:
+    src: ../../tools/genesis-snapshot/genesis-snapshot.bin
+    dest: /opt/iota-core/snapshot.bin
+    mode: '0644'
+
+- name: Copy configuration file
+  copy:
+    src: config.json
+    dest: /opt/iota-core/config.json
+    mode: '0644'
+
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose-iota-core.yml.j2
+    dest: /opt/iota-core/docker-compose.yml
+    mode: '0644'
+
+- name: Kill & teardown existing services
+  community.docker.docker_compose:
+    project_src: /opt/iota-core
+    timeout: 5
+    state: absent
+    stopped: true
+    remove_orphans: true
+    remove_volumes: true
+
+- name: Create DB directory
+  file:
+    path: /opt/iota-core/data
+    state: directory
+    mode: '0777'
+
+- name: Remove DB
+  shell:
+    cmd: rm -rf /opt/iota-core/data/*
+
+- name: Clean conntrack
+  shell:
+    cmd: conntrack -D -p udp
+  ignore_errors: true # sometimes conntrack might not be installed
+
+- name: Run node
+  community.docker.docker_compose:
+    project_src: /opt/iota-core
+    timeout: 180
+    state: present
+    pull: yes

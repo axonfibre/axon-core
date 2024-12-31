@@ -1,0 +1,21 @@
+scrape_configs:
+  - job_name: metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - node-1-validator:9311
+          - node-2-validator:9311
+          - node-3-validator:9311
+          - node-4-validator:9311
+          - node-5:9311
+          - node-6:9311
+    dns_sd_configs:
+      - names:
+          - 'peer_replica'
+        type: 'A'
+        port: 9311
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        regex: '[0-9]+.[0-9]+.[0-9]+.([0-9]+):[0-9]+'
+        replacement: peer_replica:$1

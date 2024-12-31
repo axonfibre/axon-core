@@ -1,0 +1,27 @@
+name: Build internal tools
+
+on:
+  pull_request:
+    paths:
+      - 'tools/genesis-snapshot/**'
+
+jobs:
+  build:
+    name: Import Check
+    runs-on: self-hosted
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+
+      - name: Print Go version
+        run: go version
+
+      - name: Build genesis-snapshot tool
+        working-directory: tools/genesis-snapshot
+        run: go build .

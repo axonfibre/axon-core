@@ -1,0 +1,208 @@
+package model
+
+import (
+	"io"
+	"strconv"
+
+	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/stream"
+	"github.com/iotaledger/hive.go/stringify"
+	iotago "github.com/iotaledger/iota.go/v4"
+)
+
+// AccountDiff represent the storable changes for a single account within a slot.
+type AccountDiff struct {
+	BICChange iotago.BlockIssuanceCredits
+
+	PreviousUpdatedSlot iotago.SlotIndex
+
+	NewExpirySlot      iotago.SlotIndex
+	PreviousExpirySlot iotago.SlotIndex
+
+	// OutputID to which the Account has been transitioned to.
+	NewOutputID iotago.OutputID
+
+	// OutputID from which the Account has been transitioned from.
+	PreviousOutputID iotago.OutputID
+
+	BlockIssuerKeysAdded   iotago.BlockIssuerKeys
+	BlockIssuerKeysRemoved iotago.BlockIssuerKeys
+
+	ValidatorStakeChange              int64
+	DelegationStakeChange             int64
+	StakeEndEpochChange               int64
+	FixedCostChange                   int64
+	PrevLatestSupportedVersionAndHash VersionAndHash
+	NewLatestSupportedVersionAndHash  VersionAndHash
+}
+
+// NewAccountDiff creates a new AccountDiff instance.
+func NewAccountDiff() *AccountDiff {
+	return &AccountDiff{
+		BICChange:                         0,
+		PreviousUpdatedSlot:               0,
+		NewExpirySlot:                     0,
+		PreviousExpirySlot:                0,
+		NewOutputID:                       iotago.EmptyOutputID,
+		PreviousOutputID:                  iotago.EmptyOutputID,
+		BlockIssuerKeysAdded:              iotago.NewBlockIssuerKeys(),
+		BlockIssuerKeysRemoved:            iotago.NewBlockIssuerKeys(),
+		ValidatorStakeChange:              0,
+		DelegationStakeChange:             0,
+		StakeEndEpochChange:               0,
+		FixedCostChange:                   0,
+		PrevLatestSupportedVersionAndHash: VersionAndHash{},
+		NewLatestSupportedVersionAndHash:  VersionAndHash{},
+	}
+}
+
+func (d *AccountDiff) Clone() *AccountDiff {
+	return &AccountDiff{
+		BICChange:                         d.BICChange,
+		PreviousUpdatedSlot:               d.PreviousUpdatedSlot,
+		NewExpirySlot:                     d.NewExpirySlot,
+		PreviousExpirySlot:                d.PreviousExpirySlot,
+		NewOutputID:                       d.NewOutputID,
+		PreviousOutputID:                  d.PreviousOutputID,
+		BlockIssuerKeysAdded:              lo.CopySlice(d.BlockIssuerKeysAdded),
+		BlockIssuerKeysRemoved:            lo.CopySlice(d.BlockIssuerKeysRemoved),
+		ValidatorStakeChange:              d.ValidatorStakeChange,
+		DelegationStakeChange:             d.DelegationStakeChange,
+		FixedCostChange:                   d.FixedCostChange,
+		StakeEndEpochChange:               d.StakeEndEpochChange,
+		NewLatestSupportedVersionAndHash:  d.NewLatestSupportedVersionAndHash,
+		PrevLatestSupportedVersionAndHash: d.PrevLatestSupportedVersionAndHash,
+	}
+}
+
+func (d *AccountDiff) String() string {
+	builder := stringify.NewStructBuilder("AccountDiff")
+	builder.AddField(stringify.NewStructField("BICChange", int64(d.BICChange)))
+	builder.AddField(stringify.NewStructField("PreviousUpdatedSlot", uint32(d.PreviousUpdatedSlot)))
+	builder.AddField(stringify.NewStructField("NewExpirySlot", uint32(d.NewExpirySlot)))
+	builder.AddField(stringify.NewStructField("PreviousExpirySlot", uint32(d.PreviousExpirySlot)))
+	builder.AddField(stringify.NewStructField("NewOutputID", d.NewOutputID))
+	builder.AddField(stringify.NewStructField("PreviousOutputID", d.PreviousOutputID))
+	builder.AddField(stringify.NewStructField("BlockIssuerKeysAdded", func() string { return strconv.Itoa(len(d.BlockIssuerKeysAdded)) }()))
+	builder.AddField(stringify.NewStructField("BlockIssuerKeysRemoved", func() string { return strconv.Itoa(len(d.BlockIssuerKeysRemoved)) }()))
+	builder.AddField(stringify.NewStructField("ValidatorStakeChange", d.ValidatorStakeChange))
+	builder.AddField(stringify.NewStructField("DelegationStakeChange", d.DelegationStakeChange))
+	builder.AddField(stringify.NewStructField("FixedCostChange", d.FixedCostChange))
+	builder.AddField(stringify.NewStructField("StakeEndEpochChange", d.StakeEndEpochChange))
+	builder.AddField(stringify.NewStructField("NewLatestSupportedVersionAndHash", d.NewLatestSupportedVersionAndHash))
+	builder.AddField(stringify.NewStructField("PrevLatestSupportedVersionAndHash", d.PrevLatestSupportedVersionAndHash))
+
+	return builder.String()
+}
+
+func (d *AccountDiff) Bytes() ([]byte, error) {
+	byteBuffer := stream.NewByteBuffer()
+
+	if err := stream.Write(byteBuffer, d.BICChange); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write BICChange value in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.PreviousUpdatedSlot); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write PreviousUpdatedSlot in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.NewExpirySlot); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write NewExpirySlot in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.PreviousExpirySlot); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write PreviousExpirySlot in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.NewOutputID); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write NewOutputID in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.PreviousOutputID); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write PreviousOutputID in the diff")
+	}
+
+	if err := stream.WriteObject(byteBuffer, d.BlockIssuerKeysAdded, iotago.BlockIssuerKeys.Bytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write added blockIssuerKeys in the diff")
+	}
+	if err := stream.WriteObject(byteBuffer, d.BlockIssuerKeysRemoved, iotago.BlockIssuerKeys.Bytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write removed blockIssuerKeys in the diff")
+	}
+
+	if err := stream.Write(byteBuffer, d.ValidatorStakeChange); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write ValidatorStakeChange in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.DelegationStakeChange); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write DelegationStakeChange in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.FixedCostChange); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write FixedCostChange in the diff")
+	}
+	if err := stream.Write(byteBuffer, d.StakeEndEpochChange); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write StakeEndEpochChange in the diff")
+	}
+	if err := stream.WriteObject(byteBuffer, d.NewLatestSupportedVersionAndHash, VersionAndHash.Bytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write NewLatestSupportedVersionAndHash in the diff")
+	}
+	if err := stream.WriteObject(byteBuffer, d.PrevLatestSupportedVersionAndHash, VersionAndHash.Bytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to write PrevLatestSupportedVersionAndHash in the diff")
+	}
+
+	return byteBuffer.Bytes()
+}
+
+func AccountDiffFromReader(reader io.ReadSeeker) (*AccountDiff, error) {
+	var err error
+	d := NewAccountDiff()
+
+	if d.BICChange, err = stream.Read[iotago.BlockIssuanceCredits](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read account BIC balance value in the diff")
+	}
+	if d.PreviousUpdatedSlot, err = stream.Read[iotago.SlotIndex](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read previous updated time in the diff")
+	}
+	if d.NewExpirySlot, err = stream.Read[iotago.SlotIndex](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read new expiry slot in the diff")
+	}
+	if d.PreviousExpirySlot, err = stream.Read[iotago.SlotIndex](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read previous expiry slot in the diff")
+	}
+	if d.NewOutputID, err = stream.Read[iotago.OutputID](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read new outputID in the diff")
+	}
+	if d.PreviousOutputID, err = stream.Read[iotago.OutputID](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read previous outputID in the diff")
+	}
+
+	if d.BlockIssuerKeysAdded, err = stream.ReadObjectFromReader(reader, iotago.BlockIssuerKeysFromReader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read added blockIssuerKeys in the diff")
+	}
+	if d.BlockIssuerKeysRemoved, err = stream.ReadObjectFromReader(reader, iotago.BlockIssuerKeysFromReader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read removed blockIssuerKeys in the diff")
+	}
+
+	if d.ValidatorStakeChange, err = stream.Read[int64](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read validator stake change in the diff")
+	}
+	if d.DelegationStakeChange, err = stream.Read[int64](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read delegation stake change in the diff")
+	}
+	if d.FixedCostChange, err = stream.Read[int64](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read fixed cost change in the diff")
+	}
+	if d.StakeEndEpochChange, err = stream.Read[int64](reader); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read new stake end epoch in the diff")
+	}
+	if d.NewLatestSupportedVersionAndHash, err = stream.ReadObject(reader, VersionAndHashSize, VersionAndHashFromBytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read new latest supported version and hash in the diff")
+	}
+	if d.PrevLatestSupportedVersionAndHash, err = stream.ReadObject(reader, VersionAndHashSize, VersionAndHashFromBytes); err != nil {
+		return nil, ierrors.Wrap(err, "unable to read prev latest supported version and hash in the diff")
+	}
+
+	return d, nil
+}
+
+func AccountDiffFromBytes(b []byte) (*AccountDiff, int, error) {
+	reader := stream.NewByteReader(b)
+
+	a, err := AccountDiffFromReader(reader)
+
+	return a, reader.BytesRead(), err
+}

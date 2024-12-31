@@ -1,0 +1,31 @@
+# Binaries for programs and plugins
+iota-core
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IDE related files
+.vscode/
+.idea/
+go.work*
+
+# dist packages
+dist/
+
+# OSX related files
+.DS_Store
+
+# Data directories
+/testnet
+
+# snapshot and settings file
+*.bin
+tools/docker-network/docker-network.snapshot
